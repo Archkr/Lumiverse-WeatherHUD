@@ -673,17 +673,7 @@ function createFxMarkup(kind) {
       "--flake-delay": `${Math.random() * -5}s`
     }));
   }
-  return { mount: null, root };
-}
-function createFxRoot(ctx, kind) {
-  const mount = ctx.ui.mountApp({
-    className: `weather-fx-mount weather-fx-mount-${kind}`,
-    position: kind === "back" ? "start" : "end"
-  });
-  const fx = createFxMarkup(kind);
-  fx.mount = mount;
-  mount.root.appendChild(fx.root);
-  return fx;
+  return { root };
 }
 function resolveSceneTokens(state, intensity) {
   const paletteMap = {
@@ -895,6 +885,7 @@ function applySceneState(root, state, prefs, reducedMotion) {
   root.root.style.setProperty("--weather-particle-opacity-static", state.condition === "snow" ? String(tokens.snowOpacity * 0.18) : String(tokens.rainOpacity * 0.12));
 }
 function setup(ctx) {
+  console.info("[weather_hud] frontend build 2026-03-24.3");
   const cleanups = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
   cleanups.push(removeStyle);
@@ -907,9 +898,14 @@ function setup(ctx) {
   const settingsUI = createSettingsUI((payload) => sendToBackend(ctx, payload));
   settingsMount.appendChild(settingsUI.root);
   cleanups.push(() => settingsUI.destroy());
-  const backFx = createFxRoot(ctx, "back");
-  const frontFx = createFxRoot(ctx, "front");
-  cleanups.push(() => backFx.mount.destroy(), () => frontFx.mount.destroy());
+  const backFx = createFxMarkup("back");
+  const frontFx = createFxMarkup("front");
+  document.body.appendChild(backFx.root);
+  document.body.appendChild(frontFx.root);
+  cleanups.push(() => {
+    backFx.root.remove();
+    frontFx.root.remove();
+  });
   let hud = createHudWidget(ctx, currentPrefs.widgetPosition);
   cleanups.push(() => hud.widget.destroy());
   let flashTimer = null;

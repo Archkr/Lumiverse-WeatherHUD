@@ -13,7 +13,6 @@ import { WEATHER_HUD_CSS } from "./ui/styles";
 
 const GEAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98a7.79 7.79 0 000-1.96l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.88 7.88 0 00-1.69-.98l-.36-2.54a.5.5 0 00-.49-.42h-3.84a.5.5 0 00-.49.42l-.36 2.54c-.6.24-1.16.56-1.69.98l-2.39-.96a.5.5 0 00-.6.22L2.43 8.8a.5.5 0 00.12.64l2.03 1.58a7.79 7.79 0 000 1.96L2.55 14.56a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.53.42 1.09.74 1.69.98l.36 2.54a.5.5 0 00.49.42h3.84a.5.5 0 00.49-.42l.36-2.54c.6-.24 1.16-.56 1.69-.98l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z"/></svg>`;
 
-type AppMountHandle = ReturnType<SpindleFrontendContext["ui"]["mountApp"]>;
 type FloatWidgetHandle = ReturnType<SpindleFrontendContext["ui"]["createFloatWidget"]>;
 
 type FxRoot = {
@@ -395,6 +394,8 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
 }
 
 export function setup(ctx: SpindleFrontendContext) {
+  console.info("[weather_hud] frontend build 2026-03-24.3");
+
   const cleanups: Array<() => void> = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
   cleanups.push(removeStyle);
@@ -413,15 +414,14 @@ export function setup(ctx: SpindleFrontendContext) {
   settingsMount.appendChild(settingsUI.root);
   cleanups.push(() => settingsUI.destroy());
 
-  const fxMount: AppMountHandle = ctx.ui.mountApp({
-    className: "weather-fx-mount",
-    position: "end",
-  });
   const backFx = createFxMarkup("back");
   const frontFx = createFxMarkup("front");
-  fxMount.root.appendChild(backFx.root);
-  fxMount.root.appendChild(frontFx.root);
-  cleanups.push(() => fxMount.destroy());
+  document.body.appendChild(backFx.root);
+  document.body.appendChild(frontFx.root);
+  cleanups.push(() => {
+    backFx.root.remove();
+    frontFx.root.remove();
+  });
 
   let hud = createHudWidget(ctx, currentPrefs.widgetPosition);
   cleanups.push(() => hud.widget.destroy());
