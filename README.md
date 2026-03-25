@@ -12,7 +12,7 @@ It is built for story-driven use, not live forecast data. The model controls the
 - Manual lock mode for overriding the current scene per chat
 - Per-chat persistence for story state and manual overrides
 - Fallback weather-tag generation if the model finishes without emitting one
-- Prompt macros similar to `simtracker`, so prompt-side integration is explicit and reliable
+- Prompt macros for reliable prompt-side weather tag generation
 
 ## Prompt Setup
 
@@ -97,20 +97,39 @@ Supported palettes:
 
 ## Installation
 
-1. Build the extension:
-
-```bash
-bun run build
-```
-
-2. In Lumiverse, install the extension from:
+1. Copy the repository URL:
 
 ```text
-spindle.json
+https://github.com/Archkr/Lumiverse-StoryWeather
 ```
 
-3. Enable it and grant the requested permissions.
-4. Add `{{weather_tracker}}` to the system prompt or preset you want to use with it.
+2. In Lumiverse:
+
+- Open the `Extensions` tab
+- Click `Install`
+- Paste the repo URL into the repo URL field
+- Click `Install`
+
+3. Enable the extension and grant its requested permissions.
+
+4. Open the extension settings panel and confirm the HUD/settings panel loaded correctly.
+
+## Setup
+
+To use story-driven weather generation:
+
+1. Open the character or preset system prompt you want to use.
+2. Add this line somewhere in the prompt:
+
+```text
+{{weather_tracker}}
+```
+
+3. Save the prompt.
+4. Start or continue a chat.
+5. The assistant should write its visible reply first, then append the hidden `<weather-state>` tag at the end of the message.
+
+If you do not want the model driving the scene, you can skip prompt setup and use `Manual lock` from the HUD or settings panel instead.
 
 ## Development
 
