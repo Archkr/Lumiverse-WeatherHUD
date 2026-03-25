@@ -210,6 +210,30 @@ export const WEATHER_HUD_CSS = `
   color: var(--lumiverse-text-muted);
 }
 
+.weather-settings-copy-group {
+  display: grid;
+  gap: 6px;
+}
+
+.weather-settings-copy-title {
+  font-size: 11px;
+  color: var(--lumiverse-text);
+}
+
+.weather-settings-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 78%, transparent);
+  background: color-mix(in srgb, rgba(11, 19, 33, 0.92) 88%, var(--lumiverse-fill-subtle));
+  color: color-mix(in srgb, #e6f0ff 90%, white);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
 .weather-settings-label {
   display: grid;
   gap: 6px;

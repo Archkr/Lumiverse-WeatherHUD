@@ -1184,7 +1184,7 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
 }
 
 export function setup(ctx: SpindleFrontendContext) {
-  console.info("[weather_hud] frontend build 2026-03-25.2");
+console.info("[weather_hud] frontend build 2026-03-25.3");
 
   const cleanups: Array<() => void> = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);

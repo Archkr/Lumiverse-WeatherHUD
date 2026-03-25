@@ -183,6 +183,12 @@ function matchWeatherScenePreset(state) {
 // src/ui/settings.ts
 var CONDITIONS = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
 var PALETTES = ["dawn", "day", "dusk", "night", "storm", "mist", "snow"];
+function createCodeBlock(text) {
+  const code = document.createElement("pre");
+  code.className = "weather-settings-code";
+  code.textContent = text;
+  return code;
+}
 function createLabeledInput(labelText, input) {
   const label = document.createElement("label");
   label.className = "weather-settings-label";
@@ -250,9 +256,35 @@ function createSettingsUI(sendToBackend) {
   body.className = "weather-settings-card-body";
   const preview = document.createElement("div");
   preview.className = "weather-settings-preview";
+  const promptSection = createSection("Prompt integration", "To make the main model emit the hidden weather tag consistently, add the recommended macro to your system prompt or preset, just like simtracker uses {{sim_tracker}}.");
   const effectsSection = createSection("Effects", "Overall ambience, density, and motion.");
   const placementSection = createSection("Placement", "Control whether the weather stays behind the chat, in front, or both.");
   const motionSection = createSection("Motion", "Fine-tune animation pacing without breaking story sync.");
+  const promptRecommended = document.createElement("div");
+  promptRecommended.className = "weather-settings-copy-group";
+  const promptRecommendedLabel = document.createElement("strong");
+  promptRecommendedLabel.className = "weather-settings-copy-title";
+  promptRecommendedLabel.textContent = "Recommended prompt snippet";
+  const promptRecommendedCopy = document.createElement("p");
+  promptRecommendedCopy.className = "weather-settings-section-copy";
+  promptRecommendedCopy.textContent = "Place this directly in the active character or preset system prompt so the main model sees the weather instruction during generation.";
+  promptRecommended.appendChild(promptRecommendedLabel);
+  promptRecommended.appendChild(promptRecommendedCopy);
+  promptRecommended.appendChild(createCodeBlock("{{weather_tracker}}"));
+  const promptOptional = document.createElement("div");
+  promptOptional.className = "weather-settings-copy-group";
+  const promptOptionalLabel = document.createElement("strong");
+  promptOptionalLabel.className = "weather-settings-copy-title";
+  promptOptionalLabel.textContent = "Optional reference macros";
+  const promptOptionalCopy = document.createElement("p");
+  promptOptionalCopy.className = "weather-settings-section-copy";
+  promptOptionalCopy.textContent = "Use these only if you want to expose the current scene summary or the raw tag example elsewhere in the prompt.";
+  promptOptional.appendChild(promptOptionalLabel);
+  promptOptional.appendChild(promptOptionalCopy);
+  promptOptional.appendChild(createCodeBlock(`{{weather_state}}
+{{weather_format}}`));
+  promptSection.body.appendChild(promptRecommended);
+  promptSection.body.appendChild(promptOptional);
   const effectsLabel = document.createElement("label");
   effectsLabel.className = "weather-settings-label";
   effectsLabel.textContent = "Animated effects";
@@ -511,6 +543,7 @@ function createSettingsUI(sendToBackend) {
     sendToBackend({ type: "reset_widget_position" });
   });
   body.appendChild(preview);
+  body.appendChild(promptSection.section);
   body.appendChild(effectsSection.section);
   body.appendChild(placementSection.section);
   body.appendChild(motionSection.section);
@@ -531,7 +564,7 @@ function createSettingsUI(sendToBackend) {
       status.textContent = state ? `${state.source === "manual" ? "manual" : "story"} / ${state.condition} ${state.temperature}` : "Waiting for story weather";
       preview.textContent = state ? `${state.date} at ${state.time} • ${state.summary} • ${state.wind} • layer ${prefs.layerMode === "auto" ? state.layer : prefs.layerMode}` : "The HUD will wake up as soon as the model emits its first weather-state tag.";
       const effectiveLayer = prefs.layerMode === "auto" ? state?.layer : prefs.layerMode;
-      preview.textContent = state ? `${state.location} | ${state.date} at ${state.time} | ${state.summary} | ${state.wind} | layer ${effectiveLayer}` : "The HUD will wake up as soon as the model emits its first weather-state tag.";
+      preview.textContent = state ? `${state.location} | ${state.date} at ${state.time} | ${state.summary} | ${state.wind} | layer ${effectiveLayer}` : "Add {{weather_tracker}} to the active prompt, then the HUD will wake up as soon as the model emits its first weather-state tag.";
       manualModePill.textContent = state?.source === "manual" ? "Manual lock" : "Story sync";
       manualModePill.dataset.mode = state?.source === "manual" ? "manual" : "story";
       manualToggle.checked = state?.source === "manual";
@@ -769,6 +802,30 @@ var WEATHER_HUD_CSS = `
   font-size: 11px;
   line-height: 1.45;
   color: var(--lumiverse-text-muted);
+}
+
+.weather-settings-copy-group {
+  display: grid;
+  gap: 6px;
+}
+
+.weather-settings-copy-title {
+  font-size: 11px;
+  color: var(--lumiverse-text);
+}
+
+.weather-settings-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 78%, transparent);
+  background: color-mix(in srgb, rgba(11, 19, 33, 0.92) 88%, var(--lumiverse-fill-subtle));
+  color: color-mix(in srgb, #e6f0ff 90%, white);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .weather-settings-label {
@@ -2478,7 +2535,7 @@ function applySceneState(root, state, prefs, reducedMotion) {
   root.root.style.setProperty("--weather-particle-opacity-static", state.condition === "snow" ? String(clamp(tokens.snowOpacity * 0.2, 0.04, 0.22)) : String(clamp(tokens.rainOpacity * 0.12, 0.03, 0.18)));
 }
 function setup(ctx) {
-  console.info("[weather_hud] frontend build 2026-03-25.2");
+  console.info("[weather_hud] frontend build 2026-03-25.3");
   const cleanups = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
   cleanups.push(removeStyle);

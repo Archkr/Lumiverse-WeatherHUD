@@ -222,9 +222,9 @@ function normalizePrefs(input) {
 
 // src/backend.ts
 var PREFS_FILE = "weather_prefs.json";
-var WEATHER_FORMAT_MACRO = "story_weather_format";
-var WEATHER_TRACKER_MACRO = "story_weather_tracker";
-var WEATHER_STATE_MACRO = "story_weather_state";
+var WEATHER_FORMAT_MACROS = ["story_weather_format", "weather_format"];
+var WEATHER_TRACKER_MACROS = ["story_weather_tracker", "weather_tracker", "story_weather"];
+var WEATHER_STATE_MACROS = ["story_weather_state", "weather_state"];
 var activeUserId = null;
 var lastKnownChatId = null;
 var fallbackGenerationInProgress = false;
@@ -431,32 +431,42 @@ function summarizeWeatherState(state) {
 }
 function buildTrackerMacro(state) {
   return [
-    "Append one final machine-only weather-state tag after the visible reply.",
-    "Keep all visible prose outside the tag.",
+    "IMPORTANT OUTPUT FORMAT:",
+    "Write the visible reply first, then append exactly one final XML weather-state tag.",
+    "Never omit the weather-state tag, even if the scene only changed slightly.",
+    "Do not wrap the tag in markdown fences.",
+    "Do not explain the tag or mention it in visible prose.",
+    "Never place visible prose after the tag.",
+    "Emit the tag as the very last text in the assistant message.",
     `Allowed conditions: ${WEATHER_CONDITIONS.join(", ")}`,
     `Allowed layers: ${WEATHER_LAYERS.join(", ")}`,
     `Allowed palettes: ${WEATHER_PALETTES.join(", ")}`,
     "Use location, date, time, condition, summary, temperature, intensity, wind, layer, and palette.",
-    `Current scene: ${summarizeWeatherState(state)}`,
-    "Example:",
-    buildWeatherTagExample()
+    "Exact wrapper example:",
+    buildWeatherTagExample(),
+    `Current scene: ${summarizeWeatherState(state)}`
   ].join(`
 `);
 }
 function pushMacroValues(state) {
-  spindle.updateMacroValue(WEATHER_FORMAT_MACRO, buildWeatherTagExample());
-  spindle.updateMacroValue(WEATHER_TRACKER_MACRO, buildTrackerMacro(state));
-  spindle.updateMacroValue(WEATHER_STATE_MACRO, summarizeWeatherState(state));
+  const formatValue = buildWeatherTagExample();
+  const trackerValue = buildTrackerMacro(state);
+  const stateValue = summarizeWeatherState(state);
+  for (const macroName of WEATHER_FORMAT_MACROS) {
+    spindle.updateMacroValue(macroName, formatValue);
+  }
+  for (const macroName of WEATHER_TRACKER_MACROS) {
+    spindle.updateMacroValue(macroName, trackerValue);
+  }
+  for (const macroName of WEATHER_STATE_MACROS) {
+    spindle.updateMacroValue(macroName, stateValue);
+  }
 }
 function buildPromptInstruction(state) {
   return [
     "[Story Weather HUD]",
     "Keep the visible reply natural and in-character.",
-    "After the visible reply, append exactly one final-line weather-state control tag.",
-    "Never place the tag before visible prose, and never continue visible prose after the tag.",
-    "Do not mention or explain the tag in visible prose.",
-    `Continue scene metadata from: ${summarizeWeatherState(state)}`,
-    `Format: ${buildWeatherTagExample()}`
+    buildTrackerMacro(state)
   ].join(`
 `);
 }
@@ -475,27 +485,33 @@ function extractActiveChatSetting(payload) {
   const value = payload.value;
   return typeof value === "string" && value.trim() ? value : null;
 }
-spindle.registerMacro({
-  name: WEATHER_FORMAT_MACRO,
-  category: "extension:story_weather",
-  description: "Example weather-state tag format",
-  returnType: "string",
-  handler: ""
-});
-spindle.registerMacro({
-  name: WEATHER_TRACKER_MACRO,
-  category: "extension:story_weather",
-  description: "Weather HUD scene tracking instructions",
-  returnType: "string",
-  handler: ""
-});
-spindle.registerMacro({
-  name: WEATHER_STATE_MACRO,
-  category: "extension:story_weather",
-  description: "Current story weather state summary",
-  returnType: "string",
-  handler: ""
-});
+for (const name of WEATHER_FORMAT_MACROS) {
+  spindle.registerMacro({
+    name,
+    category: "extension:story_weather",
+    description: "Example weather-state tag format",
+    returnType: "string",
+    handler: ""
+  });
+}
+for (const name of WEATHER_TRACKER_MACROS) {
+  spindle.registerMacro({
+    name,
+    category: "extension:story_weather",
+    description: "Weather HUD scene tracking instructions",
+    returnType: "string",
+    handler: ""
+  });
+}
+for (const name of WEATHER_STATE_MACROS) {
+  spindle.registerMacro({
+    name,
+    category: "extension:story_weather",
+    description: "Current story weather state summary",
+    returnType: "string",
+    handler: ""
+  });
+}
 pushMacroValues(null);
 spindle.registerInterceptor(async (messages, context) => {
   const chatId = extractChatId(context);

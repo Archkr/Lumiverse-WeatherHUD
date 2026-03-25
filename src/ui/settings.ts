@@ -10,6 +10,13 @@ export interface SettingsUI {
   destroy(): void;
 }
 
+function createCodeBlock(text: string): HTMLPreElement {
+  const code = document.createElement("pre");
+  code.className = "weather-settings-code";
+  code.textContent = text;
+  return code;
+}
+
 function createLabeledInput(labelText: string, input: HTMLElement): HTMLLabelElement {
   const label = document.createElement("label");
   label.className = "weather-settings-label";
@@ -99,9 +106,46 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   const preview = document.createElement("div");
   preview.className = "weather-settings-preview";
 
+  const promptSection = createSection(
+    "Prompt integration",
+    "To make the main model emit the hidden weather tag consistently, add the recommended macro to your system prompt or preset, just like simtracker uses {{sim_tracker}}.",
+  );
   const effectsSection = createSection("Effects", "Overall ambience, density, and motion.");
   const placementSection = createSection("Placement", "Control whether the weather stays behind the chat, in front, or both.");
   const motionSection = createSection("Motion", "Fine-tune animation pacing without breaking story sync.");
+
+  const promptRecommended = document.createElement("div");
+  promptRecommended.className = "weather-settings-copy-group";
+
+  const promptRecommendedLabel = document.createElement("strong");
+  promptRecommendedLabel.className = "weather-settings-copy-title";
+  promptRecommendedLabel.textContent = "Recommended prompt snippet";
+
+  const promptRecommendedCopy = document.createElement("p");
+  promptRecommendedCopy.className = "weather-settings-section-copy";
+  promptRecommendedCopy.textContent = "Place this directly in the active character or preset system prompt so the main model sees the weather instruction during generation.";
+
+  promptRecommended.appendChild(promptRecommendedLabel);
+  promptRecommended.appendChild(promptRecommendedCopy);
+  promptRecommended.appendChild(createCodeBlock("{{weather_tracker}}"));
+
+  const promptOptional = document.createElement("div");
+  promptOptional.className = "weather-settings-copy-group";
+
+  const promptOptionalLabel = document.createElement("strong");
+  promptOptionalLabel.className = "weather-settings-copy-title";
+  promptOptionalLabel.textContent = "Optional reference macros";
+
+  const promptOptionalCopy = document.createElement("p");
+  promptOptionalCopy.className = "weather-settings-section-copy";
+  promptOptionalCopy.textContent = "Use these only if you want to expose the current scene summary or the raw tag example elsewhere in the prompt.";
+
+  promptOptional.appendChild(promptOptionalLabel);
+  promptOptional.appendChild(promptOptionalCopy);
+  promptOptional.appendChild(createCodeBlock("{{weather_state}}\n{{weather_format}}"));
+
+  promptSection.body.appendChild(promptRecommended);
+  promptSection.body.appendChild(promptOptional);
 
   const effectsLabel = document.createElement("label");
   effectsLabel.className = "weather-settings-label";
@@ -411,6 +455,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   });
 
   body.appendChild(preview);
+  body.appendChild(promptSection.section);
   body.appendChild(effectsSection.section);
   body.appendChild(placementSection.section);
   body.appendChild(motionSection.section);
@@ -442,7 +487,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
       const effectiveLayer = prefs.layerMode === "auto" ? state?.layer : prefs.layerMode;
       preview.textContent = state
         ? `${state.location} | ${state.date} at ${state.time} | ${state.summary} | ${state.wind} | layer ${effectiveLayer}`
-        : "The HUD will wake up as soon as the model emits its first weather-state tag.";
+        : "Add {{weather_tracker}} to the active prompt, then the HUD will wake up as soon as the model emits its first weather-state tag.";
 
       manualModePill.textContent = state?.source === "manual" ? "Manual lock" : "Story sync";
       manualModePill.dataset.mode = state?.source === "manual" ? "manual" : "story";
