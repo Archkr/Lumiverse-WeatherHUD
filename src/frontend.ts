@@ -16,8 +16,8 @@ const GEAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 1
 const CHEVRON_DOWN_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>`;
 const CHEVRON_UP_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="m7.41 15.41 4.59-4.58 4.59 4.58L18 14l-6-6-6 6z"/></svg>`;
 
-const HUD_COLLAPSED_SIZE = { width: 268, height: 172 };
-const HUD_EXPANDED_SIZE = { width: 304, height: 360 };
+const HUD_COLLAPSED_SIZE = { width: 272, height: 176 };
+const HUD_EXPANDED_SIZE = { width: 312, height: 388 };
 const DEFAULT_WIDGET_POSITION = { x: 24, y: 96 };
 
 type FloatWidgetHandle = ReturnType<SpindleFrontendContext["ui"]["createFloatWidget"]>;
@@ -73,6 +73,8 @@ type HudElements = {
   resumeButton?: HTMLButtonElement;
 };
 
+type HudTimePhase = "dawn" | "day" | "dusk" | "night";
+
 type SceneTokens = {
   bgStart: string;
   bgMid: string;
@@ -119,6 +121,43 @@ function titleCase(value: string): string {
   return value
     .replace(/-/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function parseHourFromTimeLabel(value: string): number | null {
+  const match = value.trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!match) return null;
+
+  let hour = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(hour)) return null;
+
+  const meridiem = (match[3] || "").toUpperCase();
+  if (meridiem === "AM") {
+    if (hour === 12) hour = 0;
+  } else if (meridiem === "PM") {
+    if (hour < 12) hour += 12;
+  }
+
+  return clamp(hour, 0, 23);
+}
+
+function resolveHudTimePhase(state: WeatherState, liveDate: Date | null): HudTimePhase {
+  if (state.palette === "dawn" || state.palette === "day" || state.palette === "dusk" || state.palette === "night") {
+    return state.palette;
+  }
+
+  const hour = liveDate?.getHours() ?? parseHourFromTimeLabel(state.time);
+  if (hour === null) return "day";
+  if (hour >= 5 && hour < 8) return "dawn";
+  if (hour >= 8 && hour < 18) return "day";
+  if (hour >= 18 && hour < 21) return "dusk";
+  return "night";
+}
+
+function formatHudPaletteLabel(state: WeatherState, phase: HudTimePhase): string {
+  if (state.palette === "storm" || state.palette === "mist" || state.palette === "snow") {
+    return titleCase(state.palette);
+  }
+  return titleCase(phase);
 }
 
 function sendToBackend(ctx: SpindleFrontendContext, payload: FrontendToBackend): void {
@@ -788,7 +827,7 @@ function createHudWidget(
   drawerToggle.className = "weather-hud-control weather-hud-control-ghost";
   protectInteractive(drawerToggle);
   const drawerToggleLabel = document.createElement("span");
-  drawerToggleLabel.textContent = expanded ? "Hide controls" : "Quick controls";
+  drawerToggleLabel.textContent = expanded ? "Hide" : "Controls";
   const drawerToggleIcon = document.createElement("span");
   drawerToggleIcon.className = "weather-hud-control-icon";
   drawerToggleIcon.innerHTML = expanded ? CHEVRON_UP_SVG : CHEVRON_DOWN_SVG;
@@ -888,7 +927,7 @@ function createHudWidget(
     storyButton = document.createElement("button");
     storyButton.type = "button";
     storyButton.className = "weather-hud-chip";
-    storyButton.textContent = "Story sync";
+    storyButton.textContent = "Follow story";
     protectInteractive(storyButton);
     storyButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -898,7 +937,7 @@ function createHudWidget(
     manualButton = document.createElement("button");
     manualButton.type = "button";
     manualButton.className = "weather-hud-chip";
-    manualButton.textContent = "Manual lock";
+    manualButton.textContent = "Lock scene";
     protectInteractive(manualButton);
     manualButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -914,7 +953,7 @@ function createHudWidget(
     presetsSection.className = "weather-hud-drawer-section";
     const presetsLabel = document.createElement("span");
     presetsLabel.className = "weather-hud-section-label";
-    presetsLabel.textContent = "Quick scene";
+    presetsLabel.textContent = "Scene";
     const presetGrid = document.createElement("div");
     presetGrid.className = "weather-hud-preset-grid";
 
@@ -940,7 +979,7 @@ function createHudWidget(
     controlsSection.className = "weather-hud-drawer-section";
     const controlsLabel = document.createElement("span");
     controlsLabel.className = "weather-hud-section-label";
-    controlsLabel.textContent = "Placement & motion";
+    controlsLabel.textContent = "Scene mix";
 
     const controlGrid = document.createElement("div");
     controlGrid.className = "weather-hud-control-grid";
@@ -1069,21 +1108,29 @@ function getLiveDate(state: WeatherState): Date | null {
 
 function syncHudState(hud: HudElements, prefs: WeatherPrefs, state: WeatherState, expanded: boolean): void {
   const liveDate = getLiveDate(state);
+  const phase = resolveHudTimePhase(state, liveDate);
+  const effectiveLayer = getEffectiveLayerMode(prefs, state);
+  const sceneIntensity = clamp(state.intensity * prefs.intensity, 0.25, 1.5);
   hud.root.dataset.expanded = expanded ? "true" : "false";
   hud.root.dataset.source = state.source;
   hud.root.dataset.condition = state.condition;
+  hud.root.dataset.palette = state.palette;
+  hud.root.dataset.timePhase = phase;
+  hud.root.dataset.layer = effectiveLayer;
+  hud.root.dataset.paused = prefs.pauseEffects ? "true" : "false";
+  hud.root.style.setProperty("--weather-hud-scene-intensity", sceneIntensity.toFixed(2));
 
   hud.icon.innerHTML = conditionIcon(state.condition);
   hud.temp.textContent = state.temperature;
   hud.summary.textContent = state.summary;
   hud.wind.textContent = `Wind • ${state.wind}`;
   hud.location.textContent = state.location;
-  hud.wind.textContent = `Wind: ${state.wind}`;
+  hud.wind.textContent = `Wind ${state.wind}`;
   hud.condition.textContent = titleCase(state.condition);
-  hud.palette.textContent = titleCase(state.palette);
-  hud.layer.textContent = titleCase(getEffectiveLayerMode(prefs, state));
-  hud.source.textContent = state.source === "manual" ? "Manual lock" : "Story sync";
-  hud.drawerToggleLabel.textContent = expanded ? "Hide controls" : "Quick controls";
+  hud.palette.textContent = formatHudPaletteLabel(state, phase);
+  hud.layer.textContent = titleCase(effectiveLayer);
+  hud.source.textContent = state.source === "manual" ? "Scene lock" : "Story sync";
+  hud.drawerToggleLabel.textContent = expanded ? "Hide" : "Controls";
   hud.drawerToggleIcon.innerHTML = expanded ? CHEVRON_UP_SVG : CHEVRON_DOWN_SVG;
 
   if (liveDate) {
@@ -1184,7 +1231,7 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
 }
 
 export function setup(ctx: SpindleFrontendContext) {
-console.info("[weather_hud] frontend build 2026-03-25.3");
+console.info("[weather_hud] frontend build 2026-03-25.4");
 
   const cleanups: Array<() => void> = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
