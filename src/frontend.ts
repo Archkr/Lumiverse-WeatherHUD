@@ -326,6 +326,36 @@ function asHTMLElement(element: Element | null): HTMLElement | null {
   return element instanceof HTMLElement ? element : null;
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseTagAttributes(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const attrRe = /([a-zA-Z_:][a-zA-Z0-9_.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = attrRe.exec(raw)) !== null) {
+    const key = match[1] || "";
+    if (!key) continue;
+    out[key] = match[2] ?? match[3] ?? match[4] ?? "";
+  }
+  return out;
+}
+
+function extractWeatherTagFromContent(content: string): { attrs: Record<string, string>; fullMatch: string } | null {
+  const tagName = escapeRegex(WEATHER_TAG_NAME);
+  const tagRe = new RegExp(String.raw`<${tagName}\b([^>]*)>([\s\S]*?)<\/${tagName}>`, "ig");
+  let match: RegExpExecArray | null;
+  let lastMatch: { attrs: Record<string, string>; fullMatch: string } | null = null;
+  while ((match = tagRe.exec(content)) !== null) {
+    lastMatch = {
+      attrs: parseTagAttributes(match[1] || ""),
+      fullMatch: match[0] || "",
+    };
+  }
+  return lastMatch;
+}
+
 function closestByClassFragment(start: Element | null, fragment: string): HTMLElement | null {
   if (!(start instanceof Element)) return null;
   return asHTMLElement(start.closest(`[class*="${fragment}"]`));
@@ -380,6 +410,43 @@ function readChatIdFromSettingsUpdate(payload: unknown): string | null | undefin
   const value = "value" in payload ? (payload as { value?: unknown }).value : undefined;
   if (typeof value !== "string" || !value.trim()) return null;
   return value;
+}
+
+function readMessageContext(payload: unknown): {
+  chatId: string | null;
+  content: string | null;
+  messageId: string | null;
+  isUser: boolean | null;
+} | null {
+  if (!payload || typeof payload !== "object") return null;
+  const value = payload as Record<string, unknown>;
+  const nestedMessage = (value.message && typeof value.message === "object" ? value.message : {}) as Record<string, unknown>;
+  const nestedChat = (value.chat && typeof value.chat === "object" ? value.chat : {}) as Record<string, unknown>;
+
+  const chatIdCandidates = [value.chatId, value.chat_id, nestedMessage.chatId, nestedMessage.chat_id, nestedChat.id, value.id];
+  const messageIdCandidates = [value.messageId, value.message_id, nestedMessage.id, nestedMessage.messageId, value.id];
+
+  const content =
+    (typeof nestedMessage.content === "string" ? nestedMessage.content : null) ||
+    (typeof value.content === "string" ? value.content : null);
+
+  const chatId = chatIdCandidates.find((candidate) => typeof candidate === "string" && candidate.trim()) as string | undefined;
+  const messageId = messageIdCandidates.find((candidate) => typeof candidate === "string" && candidate.trim()) as
+    | string
+    | undefined;
+  const isUser =
+    typeof nestedMessage.is_user === "boolean"
+      ? nestedMessage.is_user
+      : typeof value.is_user === "boolean"
+        ? value.is_user
+        : null;
+
+  return {
+    chatId: chatId ?? null,
+    content,
+    messageId: messageId ?? null,
+    isUser,
+  };
 }
 
 function resolveSceneTokens(state: WeatherState, intensity: number): SceneTokens {
@@ -996,7 +1063,7 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
 }
 
 export function setup(ctx: SpindleFrontendContext) {
-  console.info("[weather_hud] frontend build 2026-03-24.7");
+  console.info("[weather_hud] frontend build 2026-03-24.8");
 
   const cleanups: Array<() => void> = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
@@ -1006,6 +1073,7 @@ export function setup(ctx: SpindleFrontendContext) {
   let currentState: WeatherState = makeDefaultWeatherState();
   let activeChatId: string | null = resolveInitialChatId();
   let hudExpanded = false;
+  const processedWeatherTags = new Map<string, string>();
 
   const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
   const getReducedMotion = () =>
@@ -1018,6 +1086,26 @@ export function setup(ctx: SpindleFrontendContext) {
 
   const resumeStorySync = () => {
     sendToBackend(ctx, { type: "clear_manual_override", chatId: activeChatId });
+  };
+
+  const handleCompletedAssistantContent = (payload: unknown) => {
+    const context = readMessageContext(payload);
+    if (!context || context.isUser === true || typeof context.content !== "string" || !context.content.trim()) return;
+
+    const extracted = extractWeatherTagFromContent(context.content);
+    if (!extracted) return;
+
+    const dedupeKey = context.messageId ?? `${context.chatId ?? "no-chat"}:${extracted.fullMatch}`;
+    if (processedWeatherTags.get(dedupeKey) === extracted.fullMatch) return;
+    processedWeatherTags.set(dedupeKey, extracted.fullMatch);
+
+    sendToBackend(ctx, {
+      type: "weather_tag_intercepted",
+      chatId: context.chatId ?? activeChatId,
+      messageId: context.messageId,
+      attrs: extracted.attrs,
+      isStreaming: false,
+    });
   };
 
   const applyPreset = (presetId: string) => {
@@ -1298,15 +1386,8 @@ export function setup(ctx: SpindleFrontendContext) {
 
   const tagUnsub = ctx.messages.registerTagInterceptor(
     { tagName: WEATHER_TAG_NAME, removeFromMessage: true },
-    (payload) => {
-      if (payload.isStreaming) return;
-      sendToBackend(ctx, {
-        type: "weather_tag_intercepted",
-        chatId: payload.chatId ?? activeChatId,
-        messageId: payload.messageId ?? null,
-        attrs: payload.attrs,
-        isStreaming: !!payload.isStreaming,
-      });
+    () => {
+      // The HUD updates from completed message events so streaming never mutates state mid-reply.
     },
   );
   cleanups.push(tagUnsub);
@@ -1354,6 +1435,15 @@ export function setup(ctx: SpindleFrontendContext) {
     sendToBackend(ctx, { type: "chat_changed", chatId });
   });
   cleanups.push(chatChangedUnsub);
+
+  const generationEndedUnsub = ctx.events.on("GENERATION_ENDED", handleCompletedAssistantContent);
+  const messageSentUnsub = ctx.events.on("MESSAGE_SENT", handleCompletedAssistantContent);
+  const messageEditedUnsub = ctx.events.on("MESSAGE_EDITED", handleCompletedAssistantContent);
+  const messageSwipedUnsub = ctx.events.on("MESSAGE_SWIPED", handleCompletedAssistantContent);
+  cleanups.push(generationEndedUnsub);
+  cleanups.push(messageSentUnsub);
+  cleanups.push(messageEditedUnsub);
+  cleanups.push(messageSwipedUnsub);
 
   const settingsChangedUnsub = ctx.events.on("SETTINGS_UPDATED", (payload: unknown) => {
     const nextChatId = readChatIdFromSettingsUpdate(payload);

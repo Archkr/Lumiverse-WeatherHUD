@@ -32,6 +32,19 @@ const PREFS_FILE = "weather_prefs.json";
 let activeUserId: string | null = null;
 let lastKnownChatId: string | null = null;
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildWeatherTagRegex(flags = "ig"): RegExp {
+  const safeTag = escapeRegex("weather-state");
+  return new RegExp(String.raw`<${safeTag}\b[^>]*>[\s\S]*?<\/${safeTag}>`, flags);
+}
+
+function stripWeatherStateTags(content: string): string {
+  return content.replace(buildWeatherTagRegex(), "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function send(message: BackendToFrontend): void {
   spindle.sendToFrontend(message);
 }
@@ -145,17 +158,21 @@ function buildPromptInstruction(state: WeatherState | null): string {
   return [
     "[Story Weather HUD]",
     "Keep the visible reply natural and in-character.",
-    "Append exactly one machine-only tag at the end of every assistant reply so the HUD can stay in sync.",
+    "Write the full visible reply first.",
+    "Only after the visible reply is complete, you may place one machine-only control tag on its own final line.",
+    "Never place the control tag before visible prose, and never continue visible prose after the tag.",
+    "If you are unsure or nothing changed, omit the control tag instead of breaking the reply.",
     `Allowed conditions: ${WEATHER_CONDITIONS.join(", ")}`,
     `Allowed layers: ${WEATHER_LAYERS.join(", ")}`,
     `Allowed palettes: ${WEATHER_PALETTES.join(", ")}`,
-    "Use a full state tag every reply with location, date, time, condition, summary, temperature, intensity, wind, layer, and palette.",
+    "When you include the tag, use a full state with location, date, time, condition, summary, temperature, intensity, wind, layer, and palette.",
+    'Keep attribute values short plain text only. Do not use double quotes, angle brackets, or line breaks inside attribute values.',
     "Do not explain the tag or mention it in visible prose.",
     "",
     "Current weather state:",
     current,
     "",
-    "Required tag format:",
+    "Final-line tag example:",
     '<weather-state location="Tengu City" date="2026-03-24" time="9:42 PM" condition="rain" summary="Cold spring rain" temperature="61F" intensity="0.65" wind="breezy" layer="both" palette="storm"></weather-state>',
   ].join("\n");
 }
@@ -179,13 +196,20 @@ function extractActiveChatSetting(payload: unknown): string | null | undefined {
 spindle.registerInterceptor(async (messages, context) => {
   const chatId = extractChatId(context);
   const state = chatId ? await loadEffectiveWeatherState(chatId) : null;
+  const cleanedMessages = messages.map((message) => {
+    if (!message || typeof message.content !== "string") return message;
+    return {
+      ...message,
+      content: stripWeatherStateTags(message.content),
+    };
+  });
 
   return [
     {
       role: "system" as const,
       content: buildPromptInstruction(state),
     },
-    ...messages,
+    ...cleanedMessages,
   ];
 }, 60);
 
