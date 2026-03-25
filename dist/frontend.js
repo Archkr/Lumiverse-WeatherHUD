@@ -41,6 +41,143 @@ function makeDefaultWeatherState(now = Date.now()) {
   };
 }
 
+// src/presets.ts
+var WEATHER_SCENE_PRESETS = [
+  {
+    id: "clear-day",
+    label: "Clear day",
+    shortLabel: "Day",
+    description: "Bright open skies with a soft daylight bloom.",
+    state: {
+      time: "1:18 PM",
+      condition: "clear",
+      summary: "Bright open skies",
+      temperature: "72F",
+      wind: "light breeze",
+      layer: "back",
+      palette: "day",
+      intensity: 0.34
+    }
+  },
+  {
+    id: "overcast",
+    label: "Overcast",
+    shortLabel: "Overcast",
+    description: "Muted daylight under a heavy cloud ceiling.",
+    state: {
+      time: "11:26 AM",
+      condition: "cloudy",
+      summary: "Heavy overcast",
+      temperature: "63F",
+      wind: "cool drift",
+      layer: "back",
+      palette: "day",
+      intensity: 0.58
+    }
+  },
+  {
+    id: "rain",
+    label: "Rain",
+    shortLabel: "Rain",
+    description: "Steady angled rain with a low mist at the base of the scene.",
+    state: {
+      time: "5:42 PM",
+      condition: "rain",
+      summary: "Rain sweeping through",
+      temperature: "61F",
+      wind: "steady rainwind",
+      layer: "both",
+      palette: "dusk",
+      intensity: 0.74
+    }
+  },
+  {
+    id: "storm",
+    label: "Storm",
+    shortLabel: "Storm",
+    description: "Dark thunderheads, hard rain, and intermittent flashes.",
+    state: {
+      time: "8:18 PM",
+      condition: "storm",
+      summary: "Thunderheads building",
+      temperature: "58F",
+      wind: "hard gusts",
+      layer: "both",
+      palette: "storm",
+      intensity: 0.94
+    }
+  },
+  {
+    id: "snow",
+    label: "Snow",
+    shortLabel: "Snow",
+    description: "Layered snowfall with a cold, luminous atmosphere.",
+    state: {
+      time: "6:48 AM",
+      condition: "snow",
+      summary: "Quiet snowfall",
+      temperature: "29F",
+      wind: "hushed air",
+      layer: "both",
+      palette: "snow",
+      intensity: 0.68
+    }
+  },
+  {
+    id: "fog",
+    label: "Fog",
+    shortLabel: "Fog",
+    description: "Low fog pooling through the lower scene.",
+    state: {
+      time: "6:12 AM",
+      condition: "fog",
+      summary: "Fog pooling low",
+      temperature: "54F",
+      wind: "still",
+      layer: "back",
+      palette: "mist",
+      intensity: 0.64
+    }
+  },
+  {
+    id: "clear-night",
+    label: "Clear night",
+    shortLabel: "Night",
+    description: "Clean night air with a cool moonlit palette.",
+    state: {
+      time: "10:18 PM",
+      condition: "clear",
+      summary: "Clear night air",
+      temperature: "57F",
+      wind: "light night wind",
+      layer: "back",
+      palette: "night",
+      intensity: 0.24
+    }
+  }
+];
+function getWeatherScenePreset(presetId) {
+  return WEATHER_SCENE_PRESETS.find((preset) => preset.id === presetId) ?? null;
+}
+function buildPresetWeatherState(presetId, currentState) {
+  const preset = getWeatherScenePreset(presetId);
+  if (!preset)
+    return null;
+  const baseState = currentState ?? makeDefaultWeatherState();
+  const fallbackDate = /^\d{4}-\d{2}-\d{2}$/.test(baseState.date) ? baseState.date : formatDate(new Date);
+  return {
+    date: fallbackDate,
+    ...preset.state,
+    source: "manual"
+  };
+}
+function matchWeatherScenePreset(state) {
+  if (!state)
+    return null;
+  const match = WEATHER_SCENE_PRESETS.find((preset) => preset.state.condition === state.condition && preset.state.palette === state.palette && preset.state.layer === state.layer && preset.state.time === state.time && preset.state.summary === state.summary && preset.state.temperature === state.temperature && preset.state.wind === state.wind && Math.abs(preset.state.intensity - state.intensity) < 0.001);
+  return match?.id ?? null;
+}
+
 // src/ui/settings.ts
 var CONDITIONS = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
 var PALETTES = ["dawn", "day", "dusk", "night", "storm", "mist", "snow"];
@@ -50,6 +187,49 @@ function createLabeledInput(labelText, input) {
   label.textContent = labelText;
   label.appendChild(input);
   return label;
+}
+function createSection(titleText, copyText) {
+  const section = document.createElement("section");
+  section.className = "weather-settings-section";
+  const header = document.createElement("div");
+  header.className = "weather-settings-section-header";
+  const title = document.createElement("strong");
+  title.className = "weather-settings-section-title";
+  title.textContent = titleText;
+  header.appendChild(title);
+  if (copyText) {
+    const copy = document.createElement("p");
+    copy.className = "weather-settings-section-copy";
+    copy.textContent = copyText;
+    header.appendChild(copy);
+  }
+  const body = document.createElement("div");
+  body.className = "weather-settings-section-body";
+  section.appendChild(header);
+  section.appendChild(body);
+  return { section, body };
+}
+function applyStateToInputs(state, fields) {
+  if (state.condition)
+    fields.conditionSelect.value = state.condition;
+  if (state.palette)
+    fields.paletteSelect.value = state.palette;
+  if (state.date && /^\d{4}-\d{2}-\d{2}$/.test(state.date))
+    fields.dateInput.value = state.date;
+  if (state.time)
+    fields.timeInput.value = state.time;
+  if (state.temperature)
+    fields.temperatureInput.value = state.temperature;
+  if (state.wind)
+    fields.windInput.value = state.wind;
+  if (state.summary)
+    fields.summaryInput.value = state.summary;
+  if (state.layer)
+    fields.sceneLayerSelect.value = state.layer;
+  if (typeof state.intensity === "number" && Number.isFinite(state.intensity)) {
+    fields.sceneIntensity.value = state.intensity.toFixed(2);
+    fields.sceneIntensityValue.textContent = `${Math.round(state.intensity * 100)}%`;
+  }
 }
 function createSettingsUI(sendToBackend) {
   const root = document.createElement("section");
@@ -64,6 +244,11 @@ function createSettingsUI(sendToBackend) {
   header.appendChild(status);
   const body = document.createElement("div");
   body.className = "weather-settings-card-body";
+  const preview = document.createElement("div");
+  preview.className = "weather-settings-preview";
+  const effectsSection = createSection("Effects", "Overall ambience, density, and motion.");
+  const placementSection = createSection("Placement", "Control whether the weather stays behind the chat, in front, or both.");
+  const motionSection = createSection("Motion", "Fine-tune animation pacing without breaking story sync.");
   const effectsLabel = document.createElement("label");
   effectsLabel.className = "weather-settings-label";
   effectsLabel.textContent = "Animated effects";
@@ -125,7 +310,7 @@ function createSettingsUI(sendToBackend) {
   motionLabel.appendChild(motionSelect);
   const pauseLabel = document.createElement("label");
   pauseLabel.className = "weather-settings-label";
-  pauseLabel.textContent = "Pause effects";
+  pauseLabel.textContent = "Pause motion";
   const pauseToggle = document.createElement("input");
   pauseToggle.type = "checkbox";
   pauseToggle.className = "weather-settings-checkbox";
@@ -133,25 +318,38 @@ function createSettingsUI(sendToBackend) {
     sendToBackend({ type: "save_prefs", prefs: { pauseEffects: pauseToggle.checked } });
   });
   pauseLabel.appendChild(pauseToggle);
-  const preview = document.createElement("div");
-  preview.className = "weather-settings-preview";
+  effectsSection.body.appendChild(effectsLabel);
+  placementSection.body.appendChild(layerLabel);
+  motionSection.body.appendChild(intensityLabel);
+  motionSection.body.appendChild(motionLabel);
+  motionSection.body.appendChild(pauseLabel);
   const manualCard = document.createElement("section");
   manualCard.className = "weather-settings-manual-card";
   const manualHeader = document.createElement("div");
   manualHeader.className = "weather-settings-manual-header";
+  const manualTitleWrap = document.createElement("div");
+  manualTitleWrap.className = "weather-settings-manual-titlewrap";
+  const manualEyebrow = document.createElement("span");
+  manualEyebrow.className = "weather-settings-section-title";
+  manualEyebrow.textContent = "Manual scene";
   const manualTitle = document.createElement("strong");
-  manualTitle.textContent = "Manual weather";
+  manualTitle.textContent = "Lock the current chat to a custom weather scene";
+  manualTitleWrap.appendChild(manualEyebrow);
+  manualTitleWrap.appendChild(manualTitle);
   const manualModePill = document.createElement("span");
   manualModePill.className = "weather-settings-status-pill";
-  manualHeader.appendChild(manualTitle);
+  manualHeader.appendChild(manualTitleWrap);
   manualHeader.appendChild(manualModePill);
   const manualHint = document.createElement("p");
   manualHint.className = "weather-settings-manual-hint";
-  manualHint.textContent = "Lock the HUD to your chosen scene, or return to story sync whenever you want.";
+  manualHint.textContent = "Quick presets apply immediately. The full editor below lets you refine the current scene and keep it locked until you resume story sync.";
   const manualToggle = document.createElement("input");
   manualToggle.type = "checkbox";
   manualToggle.className = "weather-settings-checkbox";
   const manualToggleLabel = createLabeledInput("Manual override", manualToggle);
+  const presetGrid = document.createElement("div");
+  presetGrid.className = "weather-settings-preset-grid";
+  const presetButtons = new Map;
   const conditionSelect = document.createElement("select");
   conditionSelect.className = "weather-settings-select";
   conditionSelect.innerHTML = CONDITIONS.map((condition) => `<option value="${condition}">${condition}</option>`).join("");
@@ -199,14 +397,19 @@ function createSettingsUI(sendToBackend) {
   });
   sceneIntensityRow.appendChild(sceneIntensity);
   sceneIntensityRow.appendChild(sceneIntensityValue);
-  const quickButtons = document.createElement("div");
-  quickButtons.className = "weather-settings-chip-grid";
-  let currentState = null;
-  const updateChipSelection = () => {
-    for (const chip of quickButtons.querySelectorAll(".weather-settings-chip")) {
-      chip.classList.toggle("weather-settings-chip-active", chip.dataset.condition === conditionSelect.value);
-    }
+  const fields = {
+    conditionSelect,
+    paletteSelect,
+    dateInput,
+    timeInput,
+    temperatureInput,
+    windInput,
+    summaryInput,
+    sceneLayerSelect,
+    sceneIntensity,
+    sceneIntensityValue
   };
+  let currentState = null;
   const buildManualState = () => ({
     date: dateInput.value || currentState?.date,
     time: timeInput.value.trim() || currentState?.time,
@@ -219,24 +422,34 @@ function createSettingsUI(sendToBackend) {
     intensity: Number.parseFloat(sceneIntensity.value),
     source: "manual"
   });
-  const applyManualState = () => {
-    sendToBackend({ type: "set_manual_state", state: buildManualState() });
+  const updatePresetSelection = (state) => {
+    const activePresetId = matchWeatherScenePreset(state);
+    for (const [presetId, button] of presetButtons) {
+      button.classList.toggle("weather-settings-preset-active", presetId === activePresetId);
+    }
   };
-  for (const condition of CONDITIONS) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "weather-settings-chip";
-    chip.dataset.condition = condition;
-    chip.textContent = condition;
-    chip.addEventListener("click", () => {
-      conditionSelect.value = condition;
-      updateChipSelection();
+  const applyManualState = (state) => {
+    sendToBackend({ type: "set_manual_state", state: state ?? buildManualState() });
+  };
+  for (const preset of WEATHER_SCENE_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "weather-settings-preset";
+    button.innerHTML = `
+      <span class="weather-settings-preset-label">${preset.label}</span>
+      <span class="weather-settings-preset-copy">${preset.description}</span>
+    `;
+    button.addEventListener("click", () => {
+      const nextState = buildPresetWeatherState(preset.id, currentState);
+      if (!nextState)
+        return;
       manualToggle.checked = true;
-      applyManualState();
+      applyStateToInputs(nextState, fields);
+      applyManualState(nextState);
     });
-    quickButtons.appendChild(chip);
+    presetButtons.set(preset.id, button);
+    presetGrid.appendChild(button);
   }
-  conditionSelect.addEventListener("change", updateChipSelection);
   manualToggle.addEventListener("change", () => {
     if (manualToggle.checked) {
       applyManualState();
@@ -276,7 +489,7 @@ function createSettingsUI(sendToBackend) {
   manualCard.appendChild(manualHeader);
   manualCard.appendChild(manualHint);
   manualCard.appendChild(manualToggleLabel);
-  manualCard.appendChild(quickButtons);
+  manualCard.appendChild(presetGrid);
   manualCard.appendChild(manualGrid);
   manualCard.appendChild(sceneIntensityLabel);
   manualCard.appendChild(manualActions);
@@ -286,12 +499,10 @@ function createSettingsUI(sendToBackend) {
   resetButton.addEventListener("click", () => {
     sendToBackend({ type: "reset_widget_position" });
   });
-  body.appendChild(effectsLabel);
-  body.appendChild(layerLabel);
-  body.appendChild(intensityLabel);
-  body.appendChild(motionLabel);
-  body.appendChild(pauseLabel);
   body.appendChild(preview);
+  body.appendChild(effectsSection.section);
+  body.appendChild(placementSection.section);
+  body.appendChild(motionSection.section);
   body.appendChild(manualCard);
   body.appendChild(resetButton);
   root.appendChild(header);
@@ -307,21 +518,12 @@ function createSettingsUI(sendToBackend) {
       motionSelect.value = prefs.reducedMotion;
       pauseToggle.checked = prefs.pauseEffects;
       status.textContent = state ? `${state.source === "manual" ? "manual" : "story"} / ${state.condition} ${state.temperature}` : "Waiting for story weather";
-      preview.textContent = state ? `${state.date} at ${state.time} - ${state.summary} (${state.wind})` : "The HUD will wake up as soon as the model emits its first weather-state tag.";
+      preview.textContent = state ? `${state.date} at ${state.time} • ${state.summary} • ${state.wind} • layer ${prefs.layerMode === "auto" ? state.layer : prefs.layerMode}` : "The HUD will wake up as soon as the model emits its first weather-state tag.";
       manualModePill.textContent = state?.source === "manual" ? "Manual lock" : "Story sync";
       manualModePill.dataset.mode = state?.source === "manual" ? "manual" : "story";
       manualToggle.checked = state?.source === "manual";
       if (state) {
-        conditionSelect.value = state.condition;
-        paletteSelect.value = state.palette;
-        dateInput.value = /^\d{4}-\d{2}-\d{2}$/.test(state.date) ? state.date : "";
-        timeInput.value = state.time;
-        temperatureInput.value = state.temperature;
-        windInput.value = state.wind;
-        summaryInput.value = state.summary;
-        sceneLayerSelect.value = state.layer;
-        sceneIntensity.value = String(state.intensity.toFixed(2));
-        sceneIntensityValue.textContent = `${Math.round(state.intensity * 100)}%`;
+        applyStateToInputs(state, fields);
       } else {
         conditionSelect.value = "clear";
         paletteSelect.value = "day";
@@ -334,7 +536,7 @@ function createSettingsUI(sendToBackend) {
         sceneIntensity.value = "0.30";
         sceneIntensityValue.textContent = "30%";
       }
-      updateChipSelection();
+      updatePresetSelection(state);
     },
     destroy() {
       root.remove();
@@ -344,13 +546,115 @@ function createSettingsUI(sendToBackend) {
 
 // src/ui/styles.ts
 var WEATHER_HUD_CSS = `
+@property --weather-bg-start {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #4d77ad;
+}
+
+@property --weather-bg-mid {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #7fa8de;
+}
+
+@property --weather-bg-end {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d8ebff;
+}
+
+@property --weather-glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(255, 243, 202, 0.78);
+}
+
+@property --weather-beam-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(255, 244, 212, 0.44);
+}
+
+@property --weather-horizon-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(185, 212, 244, 0.28);
+}
+
+@property --weather-sky-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.05;
+}
+
+@property --weather-glow-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.1;
+}
+
+@property --weather-beam-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.12;
+}
+
+@property --weather-cloud-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.06;
+}
+
+@property --weather-horizon-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.04;
+}
+
+@property --weather-mist-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.03;
+}
+
+@property --weather-fog-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --weather-rain-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --weather-snow-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --weather-mote-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.04;
+}
+
+@property --weather-flash-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.26;
+}
+
 .weather-settings-card {
   width: 100%;
   border: 1px solid var(--lumiverse-border);
-  border-radius: calc(var(--lumiverse-radius) + 4px);
+  border-radius: calc(var(--lumiverse-radius) + 6px);
   background:
-    radial-gradient(circle at top right, rgba(255, 198, 126, 0.18), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill) 88%, #0f2038 12%) 0%, var(--lumiverse-fill-subtle) 100%);
+    radial-gradient(circle at top right, rgba(255, 197, 124, 0.16), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill) 87%, #0f2137 13%) 0%, var(--lumiverse-fill-subtle) 100%);
   color: var(--lumiverse-text);
   overflow: hidden;
 }
@@ -360,7 +664,7 @@ var WEATHER_HUD_CSS = `
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--lumiverse-border);
 }
 
@@ -378,8 +682,55 @@ var WEATHER_HUD_CSS = `
 
 .weather-settings-card-body {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding: 14px;
+}
+
+.weather-settings-preview {
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 72%, transparent);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lumiverse-text);
+}
+
+.weather-settings-section,
+.weather-settings-manual-card {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 80%, transparent);
+  background:
+    radial-gradient(circle at top right, rgba(141, 188, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill-subtle) 92%, #102033 8%), color-mix(in srgb, var(--lumiverse-fill-subtle) 96%, transparent));
+}
+
+.weather-settings-section-header {
+  display: grid;
+  gap: 6px;
+}
+
+.weather-settings-section-body {
+  display: grid;
+  gap: 10px;
+}
+
+.weather-settings-section-title {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(228, 236, 255, 0.68);
+}
+
+.weather-settings-section-copy,
+.weather-settings-manual-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--lumiverse-text-muted);
 }
 
 .weather-settings-label {
@@ -391,39 +742,37 @@ var WEATHER_HUD_CSS = `
 
 .weather-settings-select,
 .weather-settings-input,
-.weather-settings-button {
+.weather-settings-button,
+.weather-hud-select {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 11px;
   border: 1px solid var(--lumiverse-border);
-  background: var(--lumiverse-fill-subtle);
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 88%, rgba(255, 255, 255, 0.03));
   color: var(--lumiverse-text);
   font-size: 12px;
 }
 
-.weather-settings-input {
-  appearance: none;
-}
-
 .weather-settings-button {
   cursor: pointer;
-  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast);
-}
-
-.weather-settings-button-primary {
-  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 45%, var(--lumiverse-border));
-  background: linear-gradient(135deg, rgba(83, 126, 201, 0.92), rgba(43, 85, 157, 0.92));
-  color: #f7fbff;
-}
-
-.weather-settings-button-primary:hover {
-  background: linear-gradient(135deg, rgba(99, 142, 219, 0.96), rgba(52, 95, 171, 0.96));
+  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast), transform var(--lumiverse-transition-fast);
 }
 
 .weather-settings-button:hover {
   border-color: var(--lumiverse-border-hover);
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 75%, white 6%);
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 74%, white 6%);
+  transform: translateY(-1px);
+}
+
+.weather-settings-button-primary {
+  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 42%, var(--lumiverse-border));
+  background: linear-gradient(135deg, rgba(80, 125, 198, 0.94), rgba(45, 89, 160, 0.94));
+  color: #f7fbff;
+}
+
+.weather-settings-button-primary:hover {
+  background: linear-gradient(135deg, rgba(97, 141, 217, 0.98), rgba(53, 98, 174, 0.98));
 }
 
 .weather-settings-checkbox {
@@ -438,7 +787,8 @@ var WEATHER_HUD_CSS = `
   gap: 10px;
 }
 
-.weather-settings-range {
+.weather-settings-range,
+.weather-hud-range {
   width: 100%;
 }
 
@@ -449,32 +799,20 @@ var WEATHER_HUD_CSS = `
   color: var(--lumiverse-text);
 }
 
-.weather-settings-preview {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 70%, transparent);
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--lumiverse-text);
-}
-
-.weather-settings-manual-card {
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at top right, rgba(142, 188, 255, 0.14), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill-subtle) 90%, #0f1d30 10%), color-mix(in srgb, var(--lumiverse-fill-subtle) 96%, transparent));
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 82%, transparent);
-}
-
 .weather-settings-manual-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  align-items: start;
+  gap: 10px;
+}
+
+.weather-settings-manual-titlewrap {
+  display: grid;
+  gap: 4px;
+}
+
+.weather-settings-manual-titlewrap strong {
+  font-size: 13px;
 }
 
 .weather-settings-status-pill {
@@ -488,13 +826,43 @@ var WEATHER_HUD_CSS = `
 }
 
 .weather-settings-status-pill[data-mode="manual"] {
-  background: linear-gradient(135deg, rgba(86, 122, 189, 0.88), rgba(46, 86, 151, 0.92));
+  background: linear-gradient(135deg, rgba(88, 123, 189, 0.88), rgba(48, 86, 151, 0.92));
 }
 
-.weather-settings-manual-hint {
-  margin: 0;
+.weather-settings-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weather-settings-preset {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 72%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 84%, transparent);
+  color: var(--lumiverse-text);
+  cursor: pointer;
+  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast), transform var(--lumiverse-transition-fast);
+}
+
+.weather-settings-preset:hover,
+.weather-settings-preset-active {
+  border-color: rgba(130, 168, 255, 0.58);
+  background: rgba(86, 122, 189, 0.2);
+  transform: translateY(-1px);
+}
+
+.weather-settings-preset-label {
   font-size: 11px;
-  line-height: 1.45;
+  font-weight: 600;
+}
+
+.weather-settings-preset-copy {
+  font-size: 10px;
+  line-height: 1.35;
   color: var(--lumiverse-text-muted);
 }
 
@@ -502,30 +870,6 @@ var WEATHER_HUD_CSS = `
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.weather-settings-chip-grid {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.weather-settings-chip {
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 72%, transparent);
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 82%, transparent);
-  color: var(--lumiverse-text);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 11px;
-  line-height: 1;
-  text-transform: capitalize;
-  cursor: pointer;
-}
-
-.weather-settings-chip:hover,
-.weather-settings-chip-active {
-  border-color: rgba(130, 168, 255, 0.54);
-  background: rgba(86, 122, 189, 0.2);
 }
 
 .weather-settings-actions {
@@ -539,17 +883,20 @@ var WEATHER_HUD_CSS = `
 
 .weather-hud-widget {
   position: relative;
-  width: 236px;
-  min-height: 106px;
-  padding: 12px;
-  border-radius: 22px;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 14px;
   box-sizing: border-box;
+  border-radius: 24px;
   color: #f5f8ff;
   overflow: hidden;
-  backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(138%);
   background:
-    radial-gradient(circle at top right, rgba(255, 215, 148, 0.34), transparent 28%),
-    linear-gradient(145deg, rgba(10, 22, 39, 0.92), rgba(24, 44, 74, 0.82));
+    radial-gradient(circle at top right, rgba(255, 214, 146, 0.24), transparent 26%),
+    linear-gradient(145deg, rgba(8, 20, 37, 0.95), rgba(20, 40, 69, 0.84));
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 18px 36px rgba(3, 10, 23, 0.34);
 }
@@ -558,23 +905,36 @@ var WEATHER_HUD_CSS = `
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 38%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(129, 172, 255, 0.1), transparent 34%);
   pointer-events: none;
+}
+
+.weather-hud-widget[data-source="manual"] {
+  background:
+    radial-gradient(circle at top right, rgba(165, 205, 255, 0.28), transparent 26%),
+    linear-gradient(145deg, rgba(7, 22, 44, 0.96), rgba(24, 52, 92, 0.84));
 }
 
 .weather-hud-header,
 .weather-hud-body,
-.weather-hud-footer {
+.weather-hud-footer,
+.weather-hud-drawer {
   position: relative;
   z-index: 1;
 }
 
 .weather-hud-header {
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.weather-hud-titlewrap {
+  display: grid;
+  gap: 5px;
 }
 
 .weather-hud-eyebrow {
@@ -584,27 +944,93 @@ var WEATHER_HUD_CSS = `
   color: rgba(234, 240, 255, 0.72);
 }
 
-.weather-hud-gear {
-  width: 26px;
-  height: 26px;
-  border: 0;
+.weather-hud-source {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 8px;
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(242, 247, 255, 0.92);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.weather-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weather-hud-control,
+.weather-hud-gear,
+.weather-hud-chip,
+.weather-hud-preset {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.weather-hud-control:hover,
+.weather-hud-gear:hover,
+.weather-hud-chip:hover,
+.weather-hud-preset:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.weather-hud-control,
+.weather-hud-gear {
+  border-radius: 999px;
+}
+
+.weather-hud-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.weather-hud-control-ghost {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.weather-hud-control-active {
+  background: rgba(98, 135, 208, 0.34);
+  border-color: rgba(144, 182, 255, 0.38);
+}
+
+.weather-hud-control-icon,
+.weather-hud-gear svg,
+.weather-hud-icon svg {
+  width: 14px;
+  height: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  cursor: pointer;
 }
 
-.weather-hud-gear:hover {
-  background: rgba(255, 255, 255, 0.16);
+.weather-hud-gear {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .weather-hud-gear svg,
-.weather-hud-icon svg {
-  width: 15px;
-  height: 15px;
+.weather-hud-icon svg,
+.weather-hud-control-icon svg {
+  width: 14px;
+  height: 14px;
   fill: currentColor;
 }
 
@@ -615,23 +1041,26 @@ var WEATHER_HUD_CSS = `
   align-items: center;
 }
 
+.weather-hud-primary {
+  display: grid;
+  gap: 4px;
+}
+
 .weather-hud-date {
   font-size: 11px;
   color: rgba(232, 238, 255, 0.76);
 }
 
 .weather-hud-time {
-  margin-top: 3px;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
 .weather-hud-wind {
-  margin-top: 6px;
   font-size: 11px;
-  color: rgba(232, 238, 255, 0.7);
+  color: rgba(232, 238, 255, 0.72);
 }
 
 .weather-hud-weather {
@@ -642,9 +1071,9 @@ var WEATHER_HUD_CSS = `
 }
 
 .weather-hud-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -659,18 +1088,16 @@ var WEATHER_HUD_CSS = `
 }
 
 .weather-hud-summary {
-  max-width: 104px;
+  max-width: 122px;
   font-size: 11px;
-  line-height: 1.3;
-  color: rgba(240, 244, 255, 0.78);
+  line-height: 1.35;
+  color: rgba(240, 244, 255, 0.8);
 }
 
 .weather-hud-footer {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .weather-hud-badge {
@@ -684,13 +1111,105 @@ var WEATHER_HUD_CSS = `
   color: rgba(244, 247, 255, 0.82);
 }
 
+.weather-hud-drawer {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weather-hud-drawer-section {
+  display: grid;
+  gap: 8px;
+}
+
+.weather-hud-section-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(225, 234, 252, 0.64);
+}
+
+.weather-hud-mode-row,
+.weather-hud-action-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.weather-hud-chip,
+.weather-hud-preset {
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.weather-hud-chip-active,
+.weather-hud-preset-active {
+  background: rgba(95, 132, 208, 0.34);
+  border-color: rgba(144, 182, 255, 0.38);
+}
+
+.weather-hud-preset-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.weather-hud-control-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.weather-hud-field {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(232, 238, 255, 0.72);
+}
+
+.weather-hud-field-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.weather-hud-inline-value {
+  color: rgba(245, 248, 255, 0.88);
+}
+
+.weather-hud-select {
+  font-size: 11px;
+  padding: 7px 10px;
+  background: rgba(10, 22, 39, 0.32);
+}
+
 .weather-fx-root {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 260ms ease;
+  isolation: isolate;
+  transition:
+    opacity 320ms ease,
+    --weather-bg-start 1200ms ease,
+    --weather-bg-mid 1200ms ease,
+    --weather-bg-end 1200ms ease,
+    --weather-glow 900ms ease,
+    --weather-beam-color 900ms ease,
+    --weather-horizon-color 900ms ease,
+    --weather-sky-opacity 800ms ease,
+    --weather-glow-opacity 800ms ease,
+    --weather-beam-opacity 800ms ease,
+    --weather-cloud-opacity 800ms ease,
+    --weather-horizon-opacity 800ms ease,
+    --weather-mist-opacity 800ms ease,
+    --weather-fog-opacity 800ms ease,
+    --weather-rain-opacity 600ms ease,
+    --weather-snow-opacity 600ms ease,
+    --weather-mote-opacity 600ms ease,
+    --weather-flash-opacity 300ms ease;
 }
 
 .weather-fx-root.weather-visible {
@@ -703,23 +1222,27 @@ var WEATHER_HUD_CSS = `
 
 .weather-fx-root[data-kind="front"] {
   z-index: 12;
-}
-
-.weather-fx-root[data-kind="front"] .weather-fx-sky,
-.weather-fx-root[data-kind="front"] .weather-fx-glow,
-.weather-fx-root[data-kind="front"] .weather-fx-clouds,
-.weather-fx-root[data-kind="front"] .weather-fx-fog {
-  display: none;
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.55) 46%, #000 78%);
 }
 
 .weather-fx-root.weather-hidden {
   display: none;
 }
 
+.weather-fx-root.weather-paused *,
+.weather-fx-root.weather-paused *::before,
+.weather-fx-root.weather-paused *::after {
+  animation-play-state: paused !important;
+}
+
 .weather-fx-sky,
 .weather-fx-glow,
+.weather-fx-beams,
 .weather-fx-clouds,
+.weather-fx-horizon,
+.weather-fx-mist,
 .weather-fx-fog,
+.weather-fx-motes,
 .weather-fx-rain,
 .weather-fx-snow,
 .weather-fx-flash {
@@ -728,24 +1251,41 @@ var WEATHER_HUD_CSS = `
 }
 
 .weather-fx-sky {
-  background:
-    linear-gradient(180deg, var(--weather-bg-start) 0%, var(--weather-bg-mid) 46%, var(--weather-bg-end) 100%);
-  opacity: var(--weather-sky-opacity, 0.3);
+  background: linear-gradient(180deg, var(--weather-bg-start) 0%, var(--weather-bg-mid) 46%, var(--weather-bg-end) 100%);
+  opacity: var(--weather-sky-opacity);
   mix-blend-mode: soft-light;
-  animation: weather-sky-shift 22s ease-in-out infinite alternate;
+  animation: weather-sky-shift 24s ease-in-out infinite alternate;
 }
 
 .weather-fx-glow {
   background:
-    radial-gradient(circle at 18% 20%, var(--weather-glow), transparent 34%),
-    radial-gradient(circle at 80% 24%, color-mix(in srgb, var(--weather-glow) 72%, white 20%), transparent 26%);
-  opacity: var(--weather-glow-opacity, 0.3);
+    radial-gradient(circle at 18% 18%, var(--weather-glow), transparent 34%),
+    radial-gradient(circle at 82% 22%, color-mix(in srgb, var(--weather-glow) 74%, white 14%), transparent 30%);
+  opacity: var(--weather-glow-opacity);
   mix-blend-mode: screen;
-  animation: weather-glow-drift 16s ease-in-out infinite alternate;
+  animation: weather-glow-drift 18s ease-in-out infinite alternate;
+}
+
+.weather-fx-beams {
+  background:
+    radial-gradient(circle at 20% 16%, var(--weather-beam-color), transparent 26%),
+    linear-gradient(120deg, transparent 30%, color-mix(in srgb, var(--weather-beam-color) 58%, transparent) 48%, transparent 62%);
+  opacity: var(--weather-beam-opacity);
+  mix-blend-mode: screen;
+  animation: weather-beam-sway 14s ease-in-out infinite alternate;
+}
+
+.weather-fx-horizon {
+  background: linear-gradient(180deg, transparent 0%, transparent 48%, var(--weather-horizon-color) 100%);
+  opacity: var(--weather-horizon-opacity);
+  filter: blur(20px);
+  transform: translateY(6%);
 }
 
 .weather-fx-cloud,
 .weather-fx-fog-band,
+.weather-fx-mist-plume,
+.weather-fx-mote,
 .weather-fx-rain-drop,
 .weather-fx-snow-flake {
   position: absolute;
@@ -759,10 +1299,10 @@ var WEATHER_HUD_CSS = `
   left: var(--cloud-left);
   border-radius: 999px;
   background:
-    radial-gradient(circle at 30% 36%, rgba(255, 255, 255, 0.32), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
-  filter: blur(4px);
-  opacity: var(--weather-cloud-opacity, 0.2);
+    radial-gradient(circle at 28% 35%, rgba(255, 255, 255, 0.34), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03));
+  filter: blur(var(--cloud-blur));
+  opacity: calc(var(--weather-cloud-opacity) * var(--cloud-opacity-scale));
   animation: weather-cloud-drift var(--cloud-duration) linear infinite;
   animation-delay: var(--cloud-delay);
 }
@@ -774,58 +1314,89 @@ var WEATHER_HUD_CSS = `
   left: var(--fog-left);
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgba(236, 241, 255, 0.18), transparent);
-  filter: blur(18px);
-  opacity: var(--weather-fog-opacity, 0.12);
+  filter: blur(20px);
+  opacity: calc(var(--weather-fog-opacity) * var(--fog-opacity-scale));
   animation: weather-fog-drift var(--fog-duration) ease-in-out infinite;
   animation-delay: var(--fog-delay);
 }
 
+.weather-fx-mist-plume {
+  width: var(--mist-width);
+  height: var(--mist-height);
+  left: var(--mist-left);
+  bottom: var(--mist-bottom);
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(228, 238, 248, 0.24), transparent 68%);
+  filter: blur(22px);
+  opacity: calc(var(--weather-mist-opacity) * var(--mist-opacity-scale));
+  animation: weather-mist-roll var(--mist-duration) ease-in-out infinite;
+  animation-delay: var(--mist-delay);
+}
+
+.weather-fx-mote {
+  left: var(--mote-left);
+  top: var(--mote-top);
+  width: var(--mote-size);
+  height: var(--mote-size);
+  border-radius: 50%;
+  background: rgba(255, 247, 224, 0.95);
+  box-shadow: 0 0 10px rgba(255, 245, 214, 0.4);
+  opacity: calc(var(--weather-mote-opacity) * var(--mote-opacity-scale));
+  animation: weather-mote-drift var(--mote-duration) ease-in-out infinite;
+  animation-delay: var(--mote-delay);
+}
+
 .weather-fx-rain-drop {
-  top: -18%;
+  top: var(--drop-top);
   left: var(--drop-left);
   width: var(--drop-width);
   height: var(--drop-length);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), var(--weather-rain-color));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), var(--weather-rain-color));
   border-radius: 999px;
-  opacity: var(--weather-rain-opacity, 0);
+  opacity: calc(var(--weather-rain-opacity) * var(--drop-opacity-scale));
   transform: rotate(11deg);
-  filter: drop-shadow(0 0 6px rgba(191, 221, 255, 0.28));
+  filter: drop-shadow(0 0 6px rgba(191, 221, 255, 0.26));
   animation: weather-rain-fall var(--drop-duration) linear infinite;
   animation-delay: var(--drop-delay);
 }
 
+.weather-fx-rain-drop-front {
+  filter: drop-shadow(0 0 8px rgba(209, 229, 255, 0.34));
+}
+
 .weather-fx-snow-flake {
-  top: -12%;
+  top: var(--flake-top);
   left: var(--flake-left);
   width: var(--flake-size);
   height: var(--flake-size);
   border-radius: 50%;
   background: var(--weather-snow-color);
-  opacity: var(--weather-snow-opacity, 0);
+  opacity: calc(var(--weather-snow-opacity) * var(--flake-opacity-scale));
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
   animation: weather-snow-fall var(--flake-duration) linear infinite;
   animation-delay: var(--flake-delay);
 }
 
-.weather-fx-root[data-kind="front"] .weather-fx-rain-drop {
-  filter: drop-shadow(0 0 8px rgba(210, 230, 255, 0.34));
-}
-
-.weather-fx-root[data-kind="front"] .weather-fx-snow-flake {
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.46);
+.weather-fx-snow-flake-front {
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.5);
 }
 
 .weather-fx-flash {
-  background: rgba(219, 231, 255, 0.74);
+  background:
+    radial-gradient(circle at 34% 22%, rgba(232, 241, 255, 0.9), transparent 32%),
+    rgba(219, 231, 255, 0.48);
   opacity: 0;
+  mix-blend-mode: screen;
 }
 
 .weather-fx-root.weather-storm-flash .weather-fx-flash {
-  animation: weather-flash 180ms ease-out;
+  animation: weather-flash 220ms ease-out;
 }
 
 .weather-fx-root.weather-reduced-motion .weather-fx-cloud,
 .weather-fx-root.weather-reduced-motion .weather-fx-fog-band,
+.weather-fx-root.weather-reduced-motion .weather-fx-mist-plume,
+.weather-fx-root.weather-reduced-motion .weather-fx-mote,
 .weather-fx-root.weather-reduced-motion .weather-fx-rain-drop,
 .weather-fx-root.weather-reduced-motion .weather-fx-snow-flake {
   animation-duration: 0.001ms;
@@ -833,7 +1404,8 @@ var WEATHER_HUD_CSS = `
 }
 
 .weather-fx-root.weather-reduced-motion .weather-fx-sky,
-.weather-fx-root.weather-reduced-motion .weather-fx-glow {
+.weather-fx-root.weather-reduced-motion .weather-fx-glow,
+.weather-fx-root.weather-reduced-motion .weather-fx-beams {
   animation: none;
 }
 
@@ -852,9 +1424,14 @@ var WEATHER_HUD_CSS = `
   100% { transform: translate3d(1vw, -1vh, 0) scale(1.08); }
 }
 
+@keyframes weather-beam-sway {
+  0% { transform: translate3d(-1vw, 0, 0) rotate(-1deg); }
+  100% { transform: translate3d(1vw, -0.6vh, 0) rotate(1deg); }
+}
+
 @keyframes weather-cloud-drift {
-  0% { transform: translateX(-10vw); }
-  100% { transform: translateX(14vw); }
+  0% { transform: translateX(-12vw); }
+  100% { transform: translateX(18vw); }
 }
 
 @keyframes weather-fog-drift {
@@ -862,59 +1439,62 @@ var WEATHER_HUD_CSS = `
   50% { transform: translate3d(2vw, -1vh, 0); }
 }
 
+@keyframes weather-mist-roll {
+  0%, 100% { transform: translate3d(-2vw, 1vh, 0); }
+  50% { transform: translate3d(2vw, -1vh, 0); }
+}
+
+@keyframes weather-mote-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(var(--mote-drift-x), var(--mote-drift-y), 0) scale(1.12); }
+}
+
 @keyframes weather-rain-fall {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(11deg);
-    opacity: 0;
-  }
-  14% {
-    opacity: var(--weather-rain-opacity, 0);
-  }
-  100% {
-    transform: translate3d(var(--drop-drift), 118vh, 0) rotate(11deg);
-    opacity: 0;
-  }
+  0% { transform: translate3d(0, 0, 0) rotate(11deg); opacity: 0; }
+  12% { opacity: calc(var(--weather-rain-opacity) * var(--drop-opacity-scale)); }
+  100% { transform: translate3d(var(--drop-drift), 118vh, 0) rotate(11deg); opacity: 0; }
 }
 
 @keyframes weather-snow-fall {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate3d(var(--flake-drift-mid), 56vh, 0) rotate(var(--flake-spin-mid));
-  }
-  100% {
-    transform: translate3d(var(--flake-drift-end), 116vh, 0) rotate(var(--flake-spin-end));
-  }
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(var(--flake-drift-mid), 56vh, 0) rotate(var(--flake-spin-mid)); }
+  100% { transform: translate3d(var(--flake-drift-end), 116vh, 0) rotate(var(--flake-spin-end)); }
 }
 
 @keyframes weather-flash {
-  0% { opacity: 0.78; }
+  0% { opacity: var(--weather-flash-opacity); }
   100% { opacity: 0; }
 }
 
 @media (max-width: 768px) {
-  .weather-hud-widget {
-    width: 220px;
-    min-height: 98px;
-  }
-
-  .weather-settings-manual-grid {
+  .weather-settings-manual-grid,
+  .weather-settings-preset-grid {
     grid-template-columns: 1fr;
   }
 
-  .weather-settings-actions {
-    flex-direction: column;
+  .weather-settings-actions,
+  .weather-hud-mode-row,
+  .weather-hud-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .weather-hud-preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .weather-hud-time {
-    font-size: 23px;
+    font-size: 24px;
   }
 }
 `;
 
 // src/frontend.ts
 var GEAR_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98a7.79 7.79 0 000-1.96l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.88 7.88 0 00-1.69-.98l-.36-2.54a.5.5 0 00-.49-.42h-3.84a.5.5 0 00-.49.42l-.36 2.54c-.6.24-1.16.56-1.69.98l-2.39-.96a.5.5 0 00-.6.22L2.43 8.8a.5.5 0 00.12.64l2.03 1.58a7.79 7.79 0 000 1.96L2.55 14.56a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.53.42 1.09.74 1.69.98l.36 2.54a.5.5 0 00.49.42h3.84a.5.5 0 00.49-.42l.36-2.54c.6-.24 1.16-.56 1.69-.98l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z"/></svg>`;
+var CHEVRON_DOWN_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>`;
+var CHEVRON_UP_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="m7.41 15.41 4.59-4.58 4.59 4.58L18 14l-6-6-6 6z"/></svg>`;
+var HUD_COLLAPSED_SIZE = { width: 268, height: 154 };
+var HUD_EXPANDED_SIZE = { width: 304, height: 342 };
+var DEFAULT_WIDGET_POSITION = { x: 24, y: 96 };
 function conditionIcon(condition) {
   switch (condition) {
     case "cloudy":
@@ -932,6 +1512,9 @@ function conditionIcon(condition) {
       return `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5a1 1 0 011-1h0a1 1 0 011 1v1.1a1 1 0 01-1 1h0a1 1 0 01-1-1V5zm0 11.8a1 1 0 011 1V19a1 1 0 01-2 0v-1.2a1 1 0 011-1zM5 11a1 1 0 011-1h1.2a1 1 0 010 2H6a1 1 0 01-1-1zm11.8 0a1 1 0 011-1H19a1 1 0 010 2h-1.2a1 1 0 01-1-1zM7.05 7.05a1 1 0 011.41 0l.85.85a1 1 0 11-1.41 1.41l-.85-.85a1 1 0 010-1.41zm7.64 7.64a1 1 0 011.41 0l.85.85a1 1 0 01-1.41 1.41l-.85-.85a1 1 0 010-1.41zm1.41-7.64a1 1 0 010 1.41l-.85.85a1 1 0 01-1.41-1.41l.85-.85a1 1 0 011.41 0zm-7.64 7.64a1 1 0 010 1.41l-.85.85a1 1 0 01-1.41-1.41l.85-.85a1 1 0 011.41 0zM12 8a4 4 0 110 8 4 4 0 010-8z"/></svg>`;
   }
 }
+function titleCase(value) {
+  return value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 function sendToBackend(ctx, payload) {
   ctx.sendToBackend(payload);
 }
@@ -943,78 +1526,157 @@ function createSpan(className, styles) {
   }
   return span;
 }
+function protectInteractive(element) {
+  const stop = (event) => event.stopPropagation();
+  element.addEventListener("pointerdown", stop);
+  element.addEventListener("mousedown", stop);
+  element.addEventListener("touchstart", stop);
+}
 function createFxMarkup(kind) {
   const root = document.createElement("div");
   root.className = "weather-fx-root";
   root.dataset.kind = kind;
-  const sky = document.createElement("div");
-  sky.className = "weather-fx-sky";
-  root.appendChild(sky);
-  const glow = document.createElement("div");
-  glow.className = "weather-fx-glow";
-  root.appendChild(glow);
-  const clouds = document.createElement("div");
-  clouds.className = "weather-fx-clouds";
-  root.appendChild(clouds);
-  const fog = document.createElement("div");
-  fog.className = "weather-fx-fog";
-  root.appendChild(fog);
-  const rain = document.createElement("div");
-  rain.className = "weather-fx-rain";
-  root.appendChild(rain);
-  const snow = document.createElement("div");
-  snow.className = "weather-fx-snow";
-  root.appendChild(snow);
   const flash = document.createElement("div");
   flash.className = "weather-fx-flash";
+  if (kind === "back") {
+    const sky = document.createElement("div");
+    sky.className = "weather-fx-sky";
+    root.appendChild(sky);
+    const glow = document.createElement("div");
+    glow.className = "weather-fx-glow";
+    root.appendChild(glow);
+    const beams = document.createElement("div");
+    beams.className = "weather-fx-beams";
+    root.appendChild(beams);
+    const clouds = document.createElement("div");
+    clouds.className = "weather-fx-clouds";
+    root.appendChild(clouds);
+    const horizon = document.createElement("div");
+    horizon.className = "weather-fx-horizon";
+    root.appendChild(horizon);
+    const mist = document.createElement("div");
+    mist.className = "weather-fx-mist";
+    root.appendChild(mist);
+    const fog = document.createElement("div");
+    fog.className = "weather-fx-fog";
+    root.appendChild(fog);
+    const motes = document.createElement("div");
+    motes.className = "weather-fx-motes";
+    root.appendChild(motes);
+    const rain = document.createElement("div");
+    rain.className = "weather-fx-rain";
+    root.appendChild(rain);
+    const snow = document.createElement("div");
+    snow.className = "weather-fx-snow";
+    root.appendChild(snow);
+    for (let index = 0;index < 10; index += 1) {
+      clouds.appendChild(createSpan("weather-fx-cloud", {
+        "--cloud-width": `${180 + Math.round(Math.random() * 260)}px`,
+        "--cloud-height": `${46 + Math.round(Math.random() * 70)}px`,
+        "--cloud-top": `${4 + index * 8 + Math.round(Math.random() * 5)}%`,
+        "--cloud-left": `${-22 + Math.round(Math.random() * 102)}%`,
+        "--cloud-duration": `${28 + Math.round(Math.random() * 34)}s`,
+        "--cloud-delay": `${Math.round(Math.random() * -30)}s`,
+        "--cloud-blur": `${4 + Math.round(Math.random() * 10)}px`,
+        "--cloud-opacity-scale": `${(0.55 + Math.random() * 0.65).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 6; index += 1) {
+      fog.appendChild(createSpan("weather-fx-fog-band", {
+        "--fog-width": `${240 + Math.round(Math.random() * 320)}px`,
+        "--fog-height": `${52 + Math.round(Math.random() * 44)}px`,
+        "--fog-top": `${14 + index * 12 + Math.round(Math.random() * 5)}%`,
+        "--fog-left": `${-14 + Math.round(Math.random() * 90)}%`,
+        "--fog-duration": `${18 + Math.round(Math.random() * 16)}s`,
+        "--fog-delay": `${Math.round(Math.random() * -18)}s`,
+        "--fog-opacity-scale": `${(0.55 + Math.random() * 0.6).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 5; index += 1) {
+      mist.appendChild(createSpan("weather-fx-mist-plume", {
+        "--mist-width": `${260 + Math.round(Math.random() * 280)}px`,
+        "--mist-height": `${80 + Math.round(Math.random() * 42)}px`,
+        "--mist-left": `${-12 + Math.round(Math.random() * 88)}%`,
+        "--mist-bottom": `${-3 + Math.round(Math.random() * 16)}%`,
+        "--mist-duration": `${16 + Math.round(Math.random() * 14)}s`,
+        "--mist-delay": `${Math.round(Math.random() * -16)}s`,
+        "--mist-opacity-scale": `${(0.6 + Math.random() * 0.55).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 18; index += 1) {
+      motes.appendChild(createSpan("weather-fx-mote", {
+        "--mote-left": `${Math.round(Math.random() * 100)}%`,
+        "--mote-top": `${18 + Math.round(Math.random() * 64)}%`,
+        "--mote-size": `${2 + Math.random() * 4}px`,
+        "--mote-duration": `${10 + Math.random() * 10}s`,
+        "--mote-delay": `${Math.random() * -10}s`,
+        "--mote-drift-x": `${(-2 + Math.random() * 4).toFixed(2)}vw`,
+        "--mote-drift-y": `${(-1 + Math.random() * 3).toFixed(2)}vh`,
+        "--mote-opacity-scale": `${(0.45 + Math.random() * 0.7).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 64; index += 1) {
+      rain.appendChild(createSpan("weather-fx-rain-drop", {
+        "--drop-left": `${Math.round(Math.random() * 104)}%`,
+        "--drop-top": `${(-20 - Math.random() * 28).toFixed(2)}%`,
+        "--drop-width": `${1 + Math.round(Math.random())}px`,
+        "--drop-length": `${20 + Math.round(Math.random() * 28)}px`,
+        "--drop-duration": `${0.9 + Math.random() * 0.85}s`,
+        "--drop-delay": `${Math.random() * -2.3}s`,
+        "--drop-drift": `${(-4.5 - Math.random() * 5.5).toFixed(2)}vw`,
+        "--drop-opacity-scale": `${(0.4 + Math.random() * 0.7).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 42; index += 1) {
+      snow.appendChild(createSpan("weather-fx-snow-flake", {
+        "--flake-left": `${Math.round(Math.random() * 102)}%`,
+        "--flake-top": `${(-18 - Math.random() * 18).toFixed(2)}%`,
+        "--flake-size": `${2 + Math.random() * 4}px`,
+        "--flake-duration": `${6.4 + Math.random() * 4.6}s`,
+        "--flake-delay": `${Math.random() * -6}s`,
+        "--flake-drift-mid": `${(-1.8 + Math.random() * 3.6).toFixed(2)}vw`,
+        "--flake-drift-end": `${(-4 + Math.random() * 8).toFixed(2)}vw`,
+        "--flake-spin-mid": `${Math.round(-18 + Math.random() * 36)}deg`,
+        "--flake-spin-end": `${Math.round(-32 + Math.random() * 64)}deg`,
+        "--flake-opacity-scale": `${(0.48 + Math.random() * 0.62).toFixed(2)}`
+      }));
+    }
+  } else {
+    const rain = document.createElement("div");
+    rain.className = "weather-fx-rain weather-fx-rain-front";
+    root.appendChild(rain);
+    const snow = document.createElement("div");
+    snow.className = "weather-fx-snow weather-fx-snow-front";
+    root.appendChild(snow);
+    for (let index = 0;index < 92; index += 1) {
+      rain.appendChild(createSpan("weather-fx-rain-drop weather-fx-rain-drop-front", {
+        "--drop-left": `${Math.round(Math.random() * 104)}%`,
+        "--drop-top": `${(-24 - Math.random() * 30).toFixed(2)}%`,
+        "--drop-width": `${2 + Math.round(Math.random())}px`,
+        "--drop-length": `${26 + Math.round(Math.random() * 34)}px`,
+        "--drop-duration": `${0.75 + Math.random() * 0.65}s`,
+        "--drop-delay": `${Math.random() * -2.1}s`,
+        "--drop-drift": `${(-7 - Math.random() * 8).toFixed(2)}vw`,
+        "--drop-opacity-scale": `${(0.48 + Math.random() * 0.75).toFixed(2)}`
+      }));
+    }
+    for (let index = 0;index < 58; index += 1) {
+      snow.appendChild(createSpan("weather-fx-snow-flake weather-fx-snow-flake-front", {
+        "--flake-left": `${Math.round(Math.random() * 102)}%`,
+        "--flake-top": `${(-18 - Math.random() * 20).toFixed(2)}%`,
+        "--flake-size": `${4 + Math.random() * 6}px`,
+        "--flake-duration": `${5.2 + Math.random() * 3.8}s`,
+        "--flake-delay": `${Math.random() * -5.4}s`,
+        "--flake-drift-mid": `${(-2.6 + Math.random() * 5.2).toFixed(2)}vw`,
+        "--flake-drift-end": `${(-6 + Math.random() * 12).toFixed(2)}vw`,
+        "--flake-spin-mid": `${Math.round(-28 + Math.random() * 56)}deg`,
+        "--flake-spin-end": `${Math.round(-60 + Math.random() * 120)}deg`,
+        "--flake-opacity-scale": `${(0.56 + Math.random() * 0.72).toFixed(2)}`
+      }));
+    }
+  }
   root.appendChild(flash);
-  const cloudCount = kind === "back" ? 5 : 3;
-  const fogCount = kind === "back" ? 4 : 2;
-  const rainCount = kind === "back" ? 28 : 42;
-  const snowCount = kind === "back" ? 24 : 30;
-  for (let index = 0;index < cloudCount; index += 1) {
-    clouds.appendChild(createSpan("weather-fx-cloud", {
-      "--cloud-width": `${160 + Math.round(Math.random() * 240)}px`,
-      "--cloud-height": `${50 + Math.round(Math.random() * 52)}px`,
-      "--cloud-top": `${8 + index * 12 + Math.round(Math.random() * 6)}%`,
-      "--cloud-left": `${-18 + Math.round(Math.random() * 86)}%`,
-      "--cloud-duration": `${34 + Math.round(Math.random() * 20)}s`,
-      "--cloud-delay": `${Math.round(Math.random() * -22)}s`
-    }));
-  }
-  for (let index = 0;index < fogCount; index += 1) {
-    fog.appendChild(createSpan("weather-fx-fog-band", {
-      "--fog-width": `${220 + Math.round(Math.random() * 260)}px`,
-      "--fog-height": `${56 + Math.round(Math.random() * 34)}px`,
-      "--fog-top": `${18 + index * 16 + Math.round(Math.random() * 4)}%`,
-      "--fog-left": `${-16 + Math.round(Math.random() * 86)}%`,
-      "--fog-duration": `${18 + Math.round(Math.random() * 10)}s`,
-      "--fog-delay": `${Math.round(Math.random() * -18)}s`
-    }));
-  }
-  for (let index = 0;index < rainCount; index += 1) {
-    rain.appendChild(createSpan("weather-fx-rain-drop", {
-      "--drop-left": `${Math.round(Math.random() * 104)}%`,
-      "--drop-width": `${kind === "back" ? 1 : 2}px`,
-      "--drop-length": `${24 + Math.round(Math.random() * 28)}px`,
-      "--drop-duration": `${0.85 + Math.random() * 0.9}s`,
-      "--drop-delay": `${Math.random() * -2.2}s`,
-      "--drop-drift": `${(-5 - Math.random() * (kind === "back" ? 4 : 10)).toFixed(2)}vw`
-    }));
-  }
-  for (let index = 0;index < snowCount; index += 1) {
-    snow.appendChild(createSpan("weather-fx-snow-flake", {
-      "--flake-left": `${Math.round(Math.random() * 104)}%`,
-      "--flake-size": `${kind === "back" ? 3 + Math.random() * 3 : 4 + Math.random() * 5}px`,
-      "--flake-duration": `${5.4 + Math.random() * 4.2}s`,
-      "--flake-delay": `${Math.random() * -5}s`,
-      "--flake-drift-mid": `${(-2 + Math.random() * 4).toFixed(2)}vw`,
-      "--flake-drift-end": `${(-6 + Math.random() * 12).toFixed(2)}vw`,
-      "--flake-spin-mid": `${Math.round(-18 + Math.random() * 36)}deg`,
-      "--flake-spin-end": `${Math.round(-42 + Math.random() * 84)}deg`
-    }));
-  }
-  return { root, host: null, releaseHost: null };
+  return { root, host: null, releaseHost: null, kind };
 }
 function asHTMLElement(element) {
   return element instanceof HTMLElement ? element : null;
@@ -1046,107 +1708,227 @@ function readChatIdFromSettingsUpdate(payload) {
 }
 function resolveSceneTokens(state, intensity) {
   const paletteMap = {
-    dawn: { start: "#20385f", mid: "#5877a7", end: "#f0a36c", glow: "rgba(255, 201, 145, 0.86)" },
-    day: { start: "#537cb0", mid: "#7fa7df", end: "#cfe7ff", glow: "rgba(255, 242, 197, 0.86)" },
-    dusk: { start: "#241f4f", mid: "#68467a", end: "#ef8e63", glow: "rgba(255, 171, 122, 0.76)" },
-    night: { start: "#06111f", mid: "#10243c", end: "#254566", glow: "rgba(136, 176, 255, 0.58)" },
-    storm: { start: "#05111b", mid: "#142a3a", end: "#33485f", glow: "rgba(187, 221, 255, 0.34)" },
-    mist: { start: "#263544", mid: "#53697d", end: "#9db1bc", glow: "rgba(226, 239, 255, 0.4)" },
-    snow: { start: "#49627f", mid: "#7d93a8", end: "#d8e4ef", glow: "rgba(255, 252, 243, 0.82)" }
+    dawn: {
+      start: "#20385f",
+      mid: "#5a77a9",
+      end: "#f0a56e",
+      glow: "rgba(255, 203, 145, 0.82)",
+      beam: "rgba(255, 218, 165, 0.48)",
+      horizon: "rgba(255, 182, 125, 0.44)"
+    },
+    day: {
+      start: "#4d77ad",
+      mid: "#7fa8de",
+      end: "#d8ebff",
+      glow: "rgba(255, 243, 202, 0.78)",
+      beam: "rgba(255, 244, 212, 0.44)",
+      horizon: "rgba(185, 212, 244, 0.28)"
+    },
+    dusk: {
+      start: "#221f4c",
+      mid: "#68487a",
+      end: "#f09067",
+      glow: "rgba(255, 173, 128, 0.72)",
+      beam: "rgba(255, 189, 150, 0.38)",
+      horizon: "rgba(224, 149, 114, 0.34)"
+    },
+    night: {
+      start: "#05101d",
+      mid: "#10253c",
+      end: "#274768",
+      glow: "rgba(143, 180, 255, 0.48)",
+      beam: "rgba(130, 164, 234, 0.2)",
+      horizon: "rgba(74, 104, 154, 0.26)"
+    },
+    storm: {
+      start: "#04101a",
+      mid: "#13283a",
+      end: "#33475f",
+      glow: "rgba(188, 220, 255, 0.26)",
+      beam: "rgba(168, 203, 236, 0.16)",
+      horizon: "rgba(108, 139, 170, 0.26)"
+    },
+    mist: {
+      start: "#213141",
+      mid: "#586c7d",
+      end: "#a7bac2",
+      glow: "rgba(226, 240, 255, 0.32)",
+      beam: "rgba(228, 239, 248, 0.18)",
+      horizon: "rgba(206, 220, 228, 0.36)"
+    },
+    snow: {
+      start: "#415b76",
+      mid: "#7d93a8",
+      end: "#e0e9f1",
+      glow: "rgba(255, 252, 244, 0.66)",
+      beam: "rgba(242, 245, 255, 0.32)",
+      horizon: "rgba(229, 238, 248, 0.4)"
+    }
   };
   const palette = paletteMap[state.palette];
   const baseIntensity = clamp(intensity, 0, 1.5);
   const values = {
-    cloudOpacity: 0.02,
+    skyOpacity: 0.05,
+    glowOpacity: 0.1,
+    beamOpacity: 0.12,
+    cloudOpacity: 0.06,
+    horizonOpacity: 0.04,
+    mistOpacity: 0.03,
     fogOpacity: 0,
     rainOpacity: 0,
     snowOpacity: 0,
-    skyOpacity: 0.025,
-    glowOpacity: 0.09
+    moteOpacity: 0.06,
+    flashOpacity: 0.26
   };
   switch (state.condition) {
     case "cloudy":
-      values.cloudOpacity = 0.3;
-      values.glowOpacity = 0.14;
-      values.skyOpacity = 0.14;
+      values.skyOpacity = 0.1;
+      values.glowOpacity = 0.08;
+      values.beamOpacity = 0.04;
+      values.cloudOpacity = 0.36;
+      values.horizonOpacity = 0.08;
+      values.mistOpacity = 0.05;
+      values.moteOpacity = 0.02;
       break;
     case "rain":
-      values.cloudOpacity = 0.36;
-      values.rainOpacity = 0.62;
-      values.fogOpacity = 0.1;
-      values.glowOpacity = 0.08;
-      values.skyOpacity = 0.16;
+      values.skyOpacity = 0.12;
+      values.glowOpacity = 0.05;
+      values.beamOpacity = 0.01;
+      values.cloudOpacity = 0.44;
+      values.horizonOpacity = 0.12;
+      values.mistOpacity = 0.16;
+      values.fogOpacity = 0.08;
+      values.rainOpacity = 0.72;
+      values.moteOpacity = 0;
       break;
     case "storm":
-      values.cloudOpacity = 0.46;
-      values.rainOpacity = 0.82;
-      values.fogOpacity = 0.14;
-      values.glowOpacity = 0.06;
-      values.skyOpacity = 0.18;
+      values.skyOpacity = 0.15;
+      values.glowOpacity = 0.04;
+      values.beamOpacity = 0;
+      values.cloudOpacity = 0.58;
+      values.horizonOpacity = 0.18;
+      values.mistOpacity = 0.2;
+      values.fogOpacity = 0.12;
+      values.rainOpacity = 0.94;
+      values.flashOpacity = 0.58;
+      values.moteOpacity = 0;
       break;
     case "snow":
-      values.cloudOpacity = 0.18;
-      values.snowOpacity = 0.76;
-      values.fogOpacity = 0.08;
-      values.glowOpacity = 0.18;
-      values.skyOpacity = 0.12;
+      values.skyOpacity = 0.11;
+      values.glowOpacity = 0.16;
+      values.beamOpacity = 0.08;
+      values.cloudOpacity = 0.24;
+      values.horizonOpacity = 0.16;
+      values.mistOpacity = 0.08;
+      values.fogOpacity = 0.05;
+      values.snowOpacity = 0.84;
+      values.moteOpacity = 0.02;
       break;
     case "fog":
+      values.skyOpacity = 0.08;
+      values.glowOpacity = 0.08;
+      values.beamOpacity = 0.02;
       values.cloudOpacity = 0.14;
-      values.fogOpacity = 0.36;
-      values.glowOpacity = 0.12;
-      values.skyOpacity = 0.1;
+      values.horizonOpacity = 0.22;
+      values.mistOpacity = 0.32;
+      values.fogOpacity = 0.58;
+      values.moteOpacity = 0.01;
       break;
     case "clear":
     default:
+      if (state.palette === "night") {
+        values.skyOpacity = 0.04;
+        values.glowOpacity = 0.08;
+        values.beamOpacity = 0.03;
+        values.cloudOpacity = 0.02;
+        values.moteOpacity = 0.02;
+      }
       break;
   }
+  const detailScale = clamp(0.7 + baseIntensity * 0.26, 0.65, 1.08);
+  const atmosphereScale = clamp(0.8 + baseIntensity * 0.22, 0.75, 1.08);
   return {
     bgStart: palette.start,
     bgMid: palette.mid,
     bgEnd: palette.end,
     glow: palette.glow,
-    cloudOpacity: values.cloudOpacity * clamp(0.8 + baseIntensity * 0.2, 0.7, 1),
-    fogOpacity: values.fogOpacity * clamp(0.85 + baseIntensity * 0.25, 0.75, 1),
-    rainOpacity: values.rainOpacity * clamp(0.6 + baseIntensity * 0.4, 0, 1.2),
-    snowOpacity: values.snowOpacity * clamp(0.6 + baseIntensity * 0.4, 0, 1.2),
-    skyOpacity: values.skyOpacity,
-    glowOpacity: values.glowOpacity
+    beamColor: palette.beam,
+    horizonColor: palette.horizon,
+    skyOpacity: values.skyOpacity * atmosphereScale,
+    glowOpacity: values.glowOpacity * atmosphereScale,
+    beamOpacity: values.beamOpacity * atmosphereScale,
+    cloudOpacity: values.cloudOpacity * detailScale,
+    horizonOpacity: values.horizonOpacity * atmosphereScale,
+    mistOpacity: values.mistOpacity * detailScale,
+    fogOpacity: values.fogOpacity * detailScale,
+    rainOpacity: values.rainOpacity * detailScale,
+    snowOpacity: values.snowOpacity * detailScale,
+    moteOpacity: state.condition === "clear" && baseIntensity > 0.48 ? values.moteOpacity * detailScale : values.moteOpacity * 0.4,
+    flashOpacity: values.flashOpacity
   };
 }
 function getEffectiveLayerMode(prefs, state) {
   return prefs.layerMode === "auto" ? state.layer : prefs.layerMode;
 }
-function createHudWidget(ctx, initialPosition) {
+function createHudWidget(ctx, initialPosition, expanded, callbacks) {
+  const size = expanded ? HUD_EXPANDED_SIZE : HUD_COLLAPSED_SIZE;
   const widget = ctx.ui.createFloatWidget({
-    width: 236,
-    height: 106,
-    initialPosition: initialPosition ?? { x: 24, y: 96 },
+    width: size.width,
+    height: size.height,
+    initialPosition,
     snapToEdge: true,
     tooltip: "Story Weather HUD",
     chromeless: true
   });
   const root = document.createElement("div");
   root.className = "weather-hud-widget";
+  root.dataset.expanded = expanded ? "true" : "false";
   const header = document.createElement("div");
   header.className = "weather-hud-header";
+  const titleWrap = document.createElement("div");
+  titleWrap.className = "weather-hud-titlewrap";
   const eyebrow = document.createElement("div");
   eyebrow.className = "weather-hud-eyebrow";
   eyebrow.textContent = "Story Weather";
+  const source = document.createElement("span");
+  source.className = "weather-hud-source";
+  titleWrap.appendChild(eyebrow);
+  titleWrap.appendChild(source);
+  const headerActions = document.createElement("div");
+  headerActions.className = "weather-hud-actions";
+  const drawerToggle = document.createElement("button");
+  drawerToggle.type = "button";
+  drawerToggle.className = "weather-hud-control weather-hud-control-ghost";
+  protectInteractive(drawerToggle);
+  const drawerToggleLabel = document.createElement("span");
+  drawerToggleLabel.textContent = expanded ? "Hide controls" : "Quick controls";
+  const drawerToggleIcon = document.createElement("span");
+  drawerToggleIcon.className = "weather-hud-control-icon";
+  drawerToggleIcon.innerHTML = expanded ? CHEVRON_UP_SVG : CHEVRON_DOWN_SVG;
+  drawerToggle.appendChild(drawerToggleLabel);
+  drawerToggle.appendChild(drawerToggleIcon);
+  drawerToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    callbacks.onToggleDrawer();
+  });
   const settingsButton = document.createElement("button");
   settingsButton.className = "weather-hud-gear";
   settingsButton.type = "button";
   settingsButton.innerHTML = GEAR_SVG;
   settingsButton.title = "Open extension settings";
+  protectInteractive(settingsButton);
   settingsButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    ctx.events.emit("open-settings", { view: "extensions" });
+    callbacks.onOpenSettings();
   });
-  header.appendChild(eyebrow);
-  header.appendChild(settingsButton);
+  headerActions.appendChild(drawerToggle);
+  headerActions.appendChild(settingsButton);
+  header.appendChild(titleWrap);
+  header.appendChild(headerActions);
   const body = document.createElement("div");
   body.className = "weather-hud-body";
   const left = document.createElement("div");
+  left.className = "weather-hud-primary";
   const date = document.createElement("div");
   date.className = "weather-hud-date";
   const time = document.createElement("div");
@@ -1183,6 +1965,152 @@ function createHudWidget(ctx, initialPosition) {
   root.appendChild(header);
   root.appendChild(body);
   root.appendChild(footer);
+  const presetButtons = new Map;
+  let storyButton;
+  let manualButton;
+  let layerSelect;
+  let intensitySlider;
+  let intensityValue;
+  let pauseButton;
+  let resumeButton;
+  if (expanded) {
+    const drawer = document.createElement("div");
+    drawer.className = "weather-hud-drawer";
+    const modeSection = document.createElement("div");
+    modeSection.className = "weather-hud-drawer-section";
+    const modeLabel = document.createElement("span");
+    modeLabel.className = "weather-hud-section-label";
+    modeLabel.textContent = "Mode";
+    const modeRow = document.createElement("div");
+    modeRow.className = "weather-hud-mode-row";
+    storyButton = document.createElement("button");
+    storyButton.type = "button";
+    storyButton.className = "weather-hud-chip";
+    storyButton.textContent = "Story sync";
+    protectInteractive(storyButton);
+    storyButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onResumeStory();
+    });
+    manualButton = document.createElement("button");
+    manualButton.type = "button";
+    manualButton.className = "weather-hud-chip";
+    manualButton.textContent = "Manual lock";
+    protectInteractive(manualButton);
+    manualButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onLockCurrentScene();
+    });
+    modeRow.appendChild(storyButton);
+    modeRow.appendChild(manualButton);
+    modeSection.appendChild(modeLabel);
+    modeSection.appendChild(modeRow);
+    const presetsSection = document.createElement("div");
+    presetsSection.className = "weather-hud-drawer-section";
+    const presetsLabel = document.createElement("span");
+    presetsLabel.className = "weather-hud-section-label";
+    presetsLabel.textContent = "Quick scene";
+    const presetGrid = document.createElement("div");
+    presetGrid.className = "weather-hud-preset-grid";
+    for (const preset of WEATHER_SCENE_PRESETS) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "weather-hud-preset";
+      button.textContent = preset.shortLabel;
+      button.title = preset.description;
+      protectInteractive(button);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        callbacks.onApplyPreset(preset.id);
+      });
+      presetButtons.set(preset.id, button);
+      presetGrid.appendChild(button);
+    }
+    presetsSection.appendChild(presetsLabel);
+    presetsSection.appendChild(presetGrid);
+    const controlsSection = document.createElement("div");
+    controlsSection.className = "weather-hud-drawer-section";
+    const controlsLabel = document.createElement("span");
+    controlsLabel.className = "weather-hud-section-label";
+    controlsLabel.textContent = "Placement & motion";
+    const controlGrid = document.createElement("div");
+    controlGrid.className = "weather-hud-control-grid";
+    const layerWrap = document.createElement("label");
+    layerWrap.className = "weather-hud-field";
+    const layerText = document.createElement("span");
+    layerText.textContent = "Placement";
+    layerSelect = document.createElement("select");
+    layerSelect.className = "weather-hud-select";
+    layerSelect.innerHTML = `
+      <option value="auto">Auto</option>
+      <option value="back">Back</option>
+      <option value="front">Front</option>
+      <option value="both">Both</option>
+    `;
+    protectInteractive(layerSelect);
+    layerSelect.addEventListener("change", (event) => {
+      event.stopPropagation();
+      callbacks.onChangeLayerMode(layerSelect.value);
+    });
+    layerWrap.appendChild(layerText);
+    layerWrap.appendChild(layerSelect);
+    const intensityWrap = document.createElement("label");
+    intensityWrap.className = "weather-hud-field";
+    const intensityHeader = document.createElement("div");
+    intensityHeader.className = "weather-hud-field-row";
+    const intensityText = document.createElement("span");
+    intensityText.textContent = "Density";
+    intensityValue = document.createElement("span");
+    intensityValue.className = "weather-hud-inline-value";
+    intensityHeader.appendChild(intensityText);
+    intensityHeader.appendChild(intensityValue);
+    intensitySlider = document.createElement("input");
+    intensitySlider.type = "range";
+    intensitySlider.className = "weather-hud-range";
+    intensitySlider.min = "0.25";
+    intensitySlider.max = "1.50";
+    intensitySlider.step = "0.05";
+    protectInteractive(intensitySlider);
+    intensitySlider.addEventListener("input", (event) => {
+      event.stopPropagation();
+      callbacks.onChangeIntensity(Number.parseFloat(intensitySlider.value));
+    });
+    intensityWrap.appendChild(intensityHeader);
+    intensityWrap.appendChild(intensitySlider);
+    controlGrid.appendChild(layerWrap);
+    controlGrid.appendChild(intensityWrap);
+    controlsSection.appendChild(controlsLabel);
+    controlsSection.appendChild(controlGrid);
+    const actionsSection = document.createElement("div");
+    actionsSection.className = "weather-hud-drawer-section";
+    const actionRow = document.createElement("div");
+    actionRow.className = "weather-hud-action-row";
+    pauseButton = document.createElement("button");
+    pauseButton.type = "button";
+    pauseButton.className = "weather-hud-control";
+    protectInteractive(pauseButton);
+    pauseButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onTogglePause();
+    });
+    resumeButton = document.createElement("button");
+    resumeButton.type = "button";
+    resumeButton.className = "weather-hud-control weather-hud-control-ghost";
+    resumeButton.textContent = "Resume story";
+    protectInteractive(resumeButton);
+    resumeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onResumeStory();
+    });
+    actionRow.appendChild(pauseButton);
+    actionRow.appendChild(resumeButton);
+    actionsSection.appendChild(actionRow);
+    drawer.appendChild(modeSection);
+    drawer.appendChild(presetsSection);
+    drawer.appendChild(controlsSection);
+    drawer.appendChild(actionsSection);
+    root.appendChild(drawer);
+  }
   widget.root.appendChild(root);
   return {
     widget,
@@ -1195,7 +2123,18 @@ function createHudWidget(ctx, initialPosition) {
     summary,
     layer,
     condition,
-    palette
+    palette,
+    source,
+    drawerToggleLabel,
+    drawerToggleIcon,
+    storyButton,
+    manualButton,
+    presetButtons,
+    layerSelect,
+    intensitySlider,
+    intensityValue,
+    pauseButton,
+    resumeButton
   };
 }
 function getLiveDate(state) {
@@ -1204,31 +2143,57 @@ function getLiveDate(state) {
   const elapsed = Math.max(0, Date.now() - state.updatedAt);
   return new Date(state.timestampMs + elapsed);
 }
-function applyHudState(hud, prefs, state) {
+function syncHudState(hud, prefs, state, expanded) {
   const liveDate = getLiveDate(state);
+  hud.root.dataset.expanded = expanded ? "true" : "false";
+  hud.root.dataset.source = state.source;
+  hud.root.dataset.condition = state.condition;
   hud.icon.innerHTML = conditionIcon(state.condition);
   hud.temp.textContent = state.temperature;
   hud.summary.textContent = state.summary;
-  hud.wind.textContent = `Wind: ${state.wind}`;
-  hud.condition.textContent = state.condition;
-  hud.palette.textContent = state.palette;
-  hud.layer.textContent = getEffectiveLayerMode(prefs, state);
+  hud.wind.textContent = `Wind • ${state.wind}`;
+  hud.condition.textContent = titleCase(state.condition);
+  hud.palette.textContent = titleCase(state.palette);
+  hud.layer.textContent = titleCase(getEffectiveLayerMode(prefs, state));
+  hud.source.textContent = state.source === "manual" ? "Manual lock" : "Story sync";
+  hud.drawerToggleLabel.textContent = expanded ? "Hide controls" : "Quick controls";
+  hud.drawerToggleIcon.innerHTML = expanded ? CHEVRON_UP_SVG : CHEVRON_DOWN_SVG;
   if (liveDate) {
-    const dateFormatter = new Intl.DateTimeFormat(undefined, {
+    hud.date.textContent = new Intl.DateTimeFormat(undefined, {
       weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric"
-    });
-    const timeFormatter = new Intl.DateTimeFormat(undefined, {
+    }).format(liveDate);
+    hud.time.textContent = new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit"
-    });
-    hud.date.textContent = dateFormatter.format(liveDate);
-    hud.time.textContent = timeFormatter.format(liveDate);
+    }).format(liveDate);
   } else {
     hud.date.textContent = state.date;
     hud.time.textContent = state.time;
+  }
+  if (hud.storyButton && hud.manualButton) {
+    hud.storyButton.classList.toggle("weather-hud-chip-active", state.source === "story");
+    hud.manualButton.classList.toggle("weather-hud-chip-active", state.source === "manual");
+  }
+  const activePresetId = matchWeatherScenePreset(state);
+  for (const [presetId, button] of hud.presetButtons) {
+    button.classList.toggle("weather-hud-preset-active", presetId === activePresetId);
+  }
+  if (hud.layerSelect) {
+    hud.layerSelect.value = prefs.layerMode;
+  }
+  if (hud.intensitySlider && hud.intensityValue) {
+    hud.intensitySlider.value = prefs.intensity.toFixed(2);
+    hud.intensityValue.textContent = `${Math.round(prefs.intensity * 100)}%`;
+  }
+  if (hud.pauseButton) {
+    hud.pauseButton.textContent = prefs.pauseEffects ? "Resume motion" : "Pause motion";
+    hud.pauseButton.classList.toggle("weather-hud-control-active", prefs.pauseEffects);
+  }
+  if (hud.resumeButton) {
+    hud.resumeButton.disabled = state.source === "story";
   }
 }
 function setFxVisibility(root, visible) {
@@ -1238,32 +2203,61 @@ function setFxVisibility(root, visible) {
 function applySceneState(root, state, prefs, reducedMotion) {
   const effectiveIntensity = clamp(state.intensity * prefs.intensity, 0, 1.5);
   const tokens = resolveSceneTokens(state, effectiveIntensity);
-  const isFront = root.root.dataset.kind === "front";
+  const isFront = root.kind === "front";
+  root.root.dataset.condition = state.condition;
+  root.root.dataset.palette = state.palette;
   root.root.classList.toggle("weather-reduced-motion", reducedMotion);
+  root.root.classList.toggle("weather-paused", prefs.pauseEffects);
   root.root.style.setProperty("--weather-bg-start", tokens.bgStart);
   root.root.style.setProperty("--weather-bg-mid", tokens.bgMid);
   root.root.style.setProperty("--weather-bg-end", tokens.bgEnd);
   root.root.style.setProperty("--weather-glow", tokens.glow);
-  root.root.style.setProperty("--weather-cloud-opacity", String(isFront ? 0 : tokens.cloudOpacity));
-  root.root.style.setProperty("--weather-fog-opacity", String(isFront ? 0 : tokens.fogOpacity * 0.92));
-  root.root.style.setProperty("--weather-rain-opacity", String(tokens.rainOpacity * (isFront ? 0.94 : 0.46)));
-  root.root.style.setProperty("--weather-snow-opacity", String(tokens.snowOpacity * (isFront ? 0.96 : 0.42)));
+  root.root.style.setProperty("--weather-beam-color", tokens.beamColor);
+  root.root.style.setProperty("--weather-horizon-color", tokens.horizonColor);
   root.root.style.setProperty("--weather-sky-opacity", String(isFront ? 0 : tokens.skyOpacity));
   root.root.style.setProperty("--weather-glow-opacity", String(isFront ? 0 : tokens.glowOpacity));
-  root.root.style.setProperty("--weather-rain-color", state.condition === "storm" ? "rgba(201, 224, 255, 0.95)" : "rgba(193, 222, 255, 0.82)");
-  root.root.style.setProperty("--weather-snow-color", "rgba(248, 251, 255, 0.92)");
-  root.root.style.setProperty("--weather-particle-opacity-static", state.condition === "snow" ? String(tokens.snowOpacity * 0.18) : String(tokens.rainOpacity * 0.12));
+  root.root.style.setProperty("--weather-beam-opacity", String(isFront ? 0 : tokens.beamOpacity));
+  root.root.style.setProperty("--weather-cloud-opacity", String(isFront ? 0 : tokens.cloudOpacity));
+  root.root.style.setProperty("--weather-horizon-opacity", String(isFront ? 0 : tokens.horizonOpacity));
+  root.root.style.setProperty("--weather-mist-opacity", String(isFront ? 0 : tokens.mistOpacity));
+  root.root.style.setProperty("--weather-fog-opacity", String(isFront ? 0 : tokens.fogOpacity));
+  root.root.style.setProperty("--weather-rain-opacity", String(tokens.rainOpacity * (isFront ? 0.95 : 0.42)));
+  root.root.style.setProperty("--weather-snow-opacity", String(tokens.snowOpacity * (isFront ? 0.98 : 0.38)));
+  root.root.style.setProperty("--weather-mote-opacity", String(isFront ? 0 : tokens.moteOpacity));
+  root.root.style.setProperty("--weather-flash-opacity", String(tokens.flashOpacity));
+  root.root.style.setProperty("--weather-rain-color", state.condition === "storm" ? "rgba(212, 231, 255, 0.96)" : "rgba(190, 220, 255, 0.84)");
+  root.root.style.setProperty("--weather-snow-color", state.palette === "night" ? "rgba(219, 232, 255, 0.92)" : "rgba(247, 250, 255, 0.95)");
+  root.root.style.setProperty("--weather-particle-opacity-static", state.condition === "snow" ? String(clamp(tokens.snowOpacity * 0.2, 0.04, 0.22)) : String(clamp(tokens.rainOpacity * 0.12, 0.03, 0.18)));
 }
 function setup(ctx) {
-  console.info("[weather_hud] frontend build 2026-03-24.5");
+  console.info("[weather_hud] frontend build 2026-03-24.6");
   const cleanups = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
   cleanups.push(removeStyle);
   let currentPrefs = DEFAULT_PREFS;
   let currentState = makeDefaultWeatherState();
   let activeChatId = resolveInitialChatId();
+  let hudExpanded = false;
   const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
   const getReducedMotion = () => currentPrefs.reducedMotion === "always" || currentPrefs.reducedMotion === "system" && motionMedia.matches;
+  const sendManualState = (state) => {
+    sendToBackend(ctx, { type: "set_manual_state", chatId: activeChatId, state });
+  };
+  const resumeStorySync = () => {
+    sendToBackend(ctx, { type: "clear_manual_override", chatId: activeChatId });
+  };
+  const applyPreset = (presetId) => {
+    const nextState = buildPresetWeatherState(presetId, currentState);
+    if (!nextState)
+      return;
+    sendManualState(nextState);
+  };
+  const lockCurrentScene = () => {
+    sendManualState({
+      ...currentState,
+      source: "manual"
+    });
+  };
   const settingsMount = ctx.ui.mount("settings_extensions");
   const settingsUI = createSettingsUI((payload) => {
     const message = payload;
@@ -1381,8 +2375,57 @@ function setup(ctx) {
     detachFxRoot(backFx);
     detachFxRoot(frontFx);
   });
-  let hud = createHudWidget(ctx, currentPrefs.widgetPosition);
-  cleanups.push(() => hud.widget.destroy());
+  let hud = null;
+  let removeHudDragListener = null;
+  const destroyHud = () => {
+    if (removeHudDragListener) {
+      removeHudDragListener();
+      removeHudDragListener = null;
+    }
+    if (hud) {
+      hud.widget.destroy();
+      hud = null;
+    }
+  };
+  const buildHud = (position) => {
+    const nextPosition = position ?? hud?.widget.getPosition() ?? currentPrefs.widgetPosition ?? DEFAULT_WIDGET_POSITION;
+    destroyHud();
+    hud = createHudWidget(ctx, nextPosition, hudExpanded, {
+      onToggleDrawer: () => {
+        const currentPosition = hud?.widget.getPosition() ?? currentPrefs.widgetPosition ?? DEFAULT_WIDGET_POSITION;
+        hudExpanded = !hudExpanded;
+        buildHud(currentPosition);
+        updateScene();
+      },
+      onOpenSettings: () => {
+        ctx.events.emit("open-settings", { view: "extensions" });
+      },
+      onLockCurrentScene: () => {
+        lockCurrentScene();
+      },
+      onResumeStory: () => {
+        resumeStorySync();
+      },
+      onApplyPreset: (presetId) => {
+        applyPreset(presetId);
+      },
+      onChangeLayerMode: (mode) => {
+        sendToBackend(ctx, { type: "save_prefs", prefs: { layerMode: mode } });
+      },
+      onChangeIntensity: (intensity) => {
+        sendToBackend(ctx, { type: "save_prefs", prefs: { intensity } });
+      },
+      onTogglePause: () => {
+        sendToBackend(ctx, { type: "save_prefs", prefs: { pauseEffects: !currentPrefs.pauseEffects } });
+      }
+    });
+    removeHudDragListener = hud.widget.onDragEnd((nextPositionFromDrag) => {
+      sendToBackend(ctx, { type: "save_prefs", prefs: { widgetPosition: nextPositionFromDrag } });
+    });
+    syncHudState(hud, currentPrefs, currentState, hudExpanded);
+  };
+  buildHud(currentPrefs.widgetPosition);
+  cleanups.push(() => destroyHud());
   let flashTimer = null;
   const resetFlashTimer = () => {
     if (flashTimer !== null) {
@@ -1403,16 +2446,18 @@ function setup(ctx) {
       window.setTimeout(() => {
         backFx.root.classList.remove("weather-storm-flash");
         frontFx.root.classList.remove("weather-storm-flash");
-      }, 180);
-      flashTimer = window.setTimeout(trigger, 4200 + Math.random() * 5200);
+      }, 220);
+      flashTimer = window.setTimeout(trigger, 3600 + Math.random() * 4600);
     };
-    flashTimer = window.setTimeout(trigger, 2200 + Math.random() * 2400);
+    flashTimer = window.setTimeout(trigger, 1800 + Math.random() * 2400);
   };
   const updateScene = () => {
     const reducedMotion = getReducedMotion();
     const layerMode = getEffectiveLayerMode(currentPrefs, currentState);
-    const showEffects = currentPrefs.effectsEnabled && !currentPrefs.pauseEffects;
-    applyHudState(hud, currentPrefs, currentState);
+    const showEffects = currentPrefs.effectsEnabled;
+    if (hud) {
+      syncHudState(hud, currentPrefs, currentState, hudExpanded);
+    }
     settingsUI.sync(currentPrefs, currentState);
     applySceneState(backFx, currentState, currentPrefs, reducedMotion);
     applySceneState(frontFx, currentState, currentPrefs, reducedMotion);
@@ -1421,15 +2466,14 @@ function setup(ctx) {
     scheduleStormFlash();
   };
   const clockTimer = window.setInterval(() => {
-    applyHudState(hud, currentPrefs, currentState);
+    if (hud) {
+      syncHudState(hud, currentPrefs, currentState, hudExpanded);
+    }
   }, 1000);
   cleanups.push(() => window.clearInterval(clockTimer));
   const onMotionChange = () => updateScene();
   motionMedia.addEventListener("change", onMotionChange);
   cleanups.push(() => motionMedia.removeEventListener("change", onMotionChange));
-  hud.widget.onDragEnd((position) => {
-    sendToBackend(ctx, { type: "save_prefs", prefs: { widgetPosition: position } });
-  });
   const tagUnsub = ctx.messages.registerTagInterceptor({ tagName: WEATHER_TAG_NAME, removeFromMessage: true }, (payload) => {
     if (payload.isStreaming)
       return;
@@ -1447,10 +2491,10 @@ function setup(ctx) {
     switch (message.type) {
       case "prefs":
         currentPrefs = message.prefs;
-        if (currentPrefs.widgetPosition) {
+        if (hud && currentPrefs.widgetPosition) {
           hud.widget.moveTo(currentPrefs.widgetPosition.x, currentPrefs.widgetPosition.y);
-        } else {
-          hud.widget.moveTo(24, 96);
+        } else if (hud && !currentPrefs.widgetPosition) {
+          hud.widget.moveTo(DEFAULT_WIDGET_POSITION.x, DEFAULT_WIDGET_POSITION.y);
         }
         updateScene();
         break;

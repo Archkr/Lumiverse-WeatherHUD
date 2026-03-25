@@ -1,3 +1,4 @@
+import { buildPresetWeatherState, matchWeatherScenePreset, WEATHER_SCENE_PRESETS } from "../presets";
 import type { WeatherCondition, WeatherPalette, WeatherPrefs, WeatherState } from "../types";
 
 const CONDITIONS: WeatherCondition[] = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
@@ -15,6 +16,63 @@ function createLabeledInput(labelText: string, input: HTMLElement): HTMLLabelEle
   label.textContent = labelText;
   label.appendChild(input);
   return label;
+}
+
+function createSection(titleText: string, copyText?: string) {
+  const section = document.createElement("section");
+  section.className = "weather-settings-section";
+
+  const header = document.createElement("div");
+  header.className = "weather-settings-section-header";
+
+  const title = document.createElement("strong");
+  title.className = "weather-settings-section-title";
+  title.textContent = titleText;
+  header.appendChild(title);
+
+  if (copyText) {
+    const copy = document.createElement("p");
+    copy.className = "weather-settings-section-copy";
+    copy.textContent = copyText;
+    header.appendChild(copy);
+  }
+
+  const body = document.createElement("div");
+  body.className = "weather-settings-section-body";
+
+  section.appendChild(header);
+  section.appendChild(body);
+
+  return { section, body };
+}
+
+function applyStateToInputs(
+  state: Partial<WeatherState>,
+  fields: {
+    conditionSelect: HTMLSelectElement;
+    paletteSelect: HTMLSelectElement;
+    dateInput: HTMLInputElement;
+    timeInput: HTMLInputElement;
+    temperatureInput: HTMLInputElement;
+    windInput: HTMLInputElement;
+    summaryInput: HTMLInputElement;
+    sceneLayerSelect: HTMLSelectElement;
+    sceneIntensity: HTMLInputElement;
+    sceneIntensityValue: HTMLSpanElement;
+  },
+): void {
+  if (state.condition) fields.conditionSelect.value = state.condition;
+  if (state.palette) fields.paletteSelect.value = state.palette;
+  if (state.date && /^\d{4}-\d{2}-\d{2}$/.test(state.date)) fields.dateInput.value = state.date;
+  if (state.time) fields.timeInput.value = state.time;
+  if (state.temperature) fields.temperatureInput.value = state.temperature;
+  if (state.wind) fields.windInput.value = state.wind;
+  if (state.summary) fields.summaryInput.value = state.summary;
+  if (state.layer) fields.sceneLayerSelect.value = state.layer;
+  if (typeof state.intensity === "number" && Number.isFinite(state.intensity)) {
+    fields.sceneIntensity.value = state.intensity.toFixed(2);
+    fields.sceneIntensityValue.textContent = `${Math.round(state.intensity * 100)}%`;
+  }
 }
 
 export function createSettingsUI(sendToBackend: (payload: unknown) => void): SettingsUI {
@@ -35,6 +93,13 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
 
   const body = document.createElement("div");
   body.className = "weather-settings-card-body";
+
+  const preview = document.createElement("div");
+  preview.className = "weather-settings-preview";
+
+  const effectsSection = createSection("Effects", "Overall ambience, density, and motion.");
+  const placementSection = createSection("Placement", "Control whether the weather stays behind the chat, in front, or both.");
+  const motionSection = createSection("Motion", "Fine-tune animation pacing without breaking story sync.");
 
   const effectsLabel = document.createElement("label");
   effectsLabel.className = "weather-settings-label";
@@ -109,7 +174,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
 
   const pauseLabel = document.createElement("label");
   pauseLabel.className = "weather-settings-label";
-  pauseLabel.textContent = "Pause effects";
+  pauseLabel.textContent = "Pause motion";
 
   const pauseToggle = document.createElement("input");
   pauseToggle.type = "checkbox";
@@ -119,8 +184,11 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   });
   pauseLabel.appendChild(pauseToggle);
 
-  const preview = document.createElement("div");
-  preview.className = "weather-settings-preview";
+  effectsSection.body.appendChild(effectsLabel);
+  placementSection.body.appendChild(layerLabel);
+  motionSection.body.appendChild(intensityLabel);
+  motionSection.body.appendChild(motionLabel);
+  motionSection.body.appendChild(pauseLabel);
 
   const manualCard = document.createElement("section");
   manualCard.className = "weather-settings-manual-card";
@@ -128,23 +196,37 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   const manualHeader = document.createElement("div");
   manualHeader.className = "weather-settings-manual-header";
 
+  const manualTitleWrap = document.createElement("div");
+  manualTitleWrap.className = "weather-settings-manual-titlewrap";
+
+  const manualEyebrow = document.createElement("span");
+  manualEyebrow.className = "weather-settings-section-title";
+  manualEyebrow.textContent = "Manual scene";
+
   const manualTitle = document.createElement("strong");
-  manualTitle.textContent = "Manual weather";
+  manualTitle.textContent = "Lock the current chat to a custom weather scene";
+
+  manualTitleWrap.appendChild(manualEyebrow);
+  manualTitleWrap.appendChild(manualTitle);
 
   const manualModePill = document.createElement("span");
   manualModePill.className = "weather-settings-status-pill";
 
-  manualHeader.appendChild(manualTitle);
+  manualHeader.appendChild(manualTitleWrap);
   manualHeader.appendChild(manualModePill);
 
   const manualHint = document.createElement("p");
   manualHint.className = "weather-settings-manual-hint";
-  manualHint.textContent = "Lock the HUD to your chosen scene, or return to story sync whenever you want.";
+  manualHint.textContent = "Quick presets apply immediately. The full editor below lets you refine the current scene and keep it locked until you resume story sync.";
 
   const manualToggle = document.createElement("input");
   manualToggle.type = "checkbox";
   manualToggle.className = "weather-settings-checkbox";
   const manualToggleLabel = createLabeledInput("Manual override", manualToggle);
+
+  const presetGrid = document.createElement("div");
+  presetGrid.className = "weather-settings-preset-grid";
+  const presetButtons = new Map<string, HTMLButtonElement>();
 
   const conditionSelect = document.createElement("select");
   conditionSelect.className = "weather-settings-select";
@@ -202,16 +284,20 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   sceneIntensityRow.appendChild(sceneIntensity);
   sceneIntensityRow.appendChild(sceneIntensityValue);
 
-  const quickButtons = document.createElement("div");
-  quickButtons.className = "weather-settings-chip-grid";
+  const fields = {
+    conditionSelect,
+    paletteSelect,
+    dateInput,
+    timeInput,
+    temperatureInput,
+    windInput,
+    summaryInput,
+    sceneLayerSelect,
+    sceneIntensity,
+    sceneIntensityValue,
+  };
 
   let currentState: WeatherState | null = null;
-
-  const updateChipSelection = () => {
-    for (const chip of quickButtons.querySelectorAll<HTMLButtonElement>(".weather-settings-chip")) {
-      chip.classList.toggle("weather-settings-chip-active", chip.dataset.condition === conditionSelect.value);
-    }
-  };
 
   const buildManualState = (): Partial<WeatherState> => ({
     date: dateInput.value || currentState?.date,
@@ -226,26 +312,35 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
     source: "manual",
   });
 
-  const applyManualState = () => {
-    sendToBackend({ type: "set_manual_state", state: buildManualState() });
+  const updatePresetSelection = (state: WeatherState | null) => {
+    const activePresetId = matchWeatherScenePreset(state);
+    for (const [presetId, button] of presetButtons) {
+      button.classList.toggle("weather-settings-preset-active", presetId === activePresetId);
+    }
   };
 
-  for (const condition of CONDITIONS) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "weather-settings-chip";
-    chip.dataset.condition = condition;
-    chip.textContent = condition;
-    chip.addEventListener("click", () => {
-      conditionSelect.value = condition;
-      updateChipSelection();
-      manualToggle.checked = true;
-      applyManualState();
-    });
-    quickButtons.appendChild(chip);
-  }
+  const applyManualState = (state?: Partial<WeatherState>) => {
+    sendToBackend({ type: "set_manual_state", state: state ?? buildManualState() });
+  };
 
-  conditionSelect.addEventListener("change", updateChipSelection);
+  for (const preset of WEATHER_SCENE_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "weather-settings-preset";
+    button.innerHTML = `
+      <span class="weather-settings-preset-label">${preset.label}</span>
+      <span class="weather-settings-preset-copy">${preset.description}</span>
+    `;
+    button.addEventListener("click", () => {
+      const nextState = buildPresetWeatherState(preset.id, currentState);
+      if (!nextState) return;
+      manualToggle.checked = true;
+      applyStateToInputs(nextState, fields);
+      applyManualState(nextState);
+    });
+    presetButtons.set(preset.id, button);
+    presetGrid.appendChild(button);
+  }
 
   manualToggle.addEventListener("change", () => {
     if (manualToggle.checked) {
@@ -293,7 +388,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
   manualCard.appendChild(manualHeader);
   manualCard.appendChild(manualHint);
   manualCard.appendChild(manualToggleLabel);
-  manualCard.appendChild(quickButtons);
+  manualCard.appendChild(presetGrid);
   manualCard.appendChild(manualGrid);
   manualCard.appendChild(sceneIntensityLabel);
   manualCard.appendChild(manualActions);
@@ -305,12 +400,10 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
     sendToBackend({ type: "reset_widget_position" });
   });
 
-  body.appendChild(effectsLabel);
-  body.appendChild(layerLabel);
-  body.appendChild(intensityLabel);
-  body.appendChild(motionLabel);
-  body.appendChild(pauseLabel);
   body.appendChild(preview);
+  body.appendChild(effectsSection.section);
+  body.appendChild(placementSection.section);
+  body.appendChild(motionSection.section);
   body.appendChild(manualCard);
   body.appendChild(resetButton);
 
@@ -331,8 +424,9 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
       status.textContent = state
         ? `${state.source === "manual" ? "manual" : "story"} / ${state.condition} ${state.temperature}`
         : "Waiting for story weather";
+
       preview.textContent = state
-        ? `${state.date} at ${state.time} - ${state.summary} (${state.wind})`
+        ? `${state.date} at ${state.time} • ${state.summary} • ${state.wind} • layer ${prefs.layerMode === "auto" ? state.layer : prefs.layerMode}`
         : "The HUD will wake up as soon as the model emits its first weather-state tag.";
 
       manualModePill.textContent = state?.source === "manual" ? "Manual lock" : "Story sync";
@@ -340,16 +434,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
       manualToggle.checked = state?.source === "manual";
 
       if (state) {
-        conditionSelect.value = state.condition;
-        paletteSelect.value = state.palette;
-        dateInput.value = /^\d{4}-\d{2}-\d{2}$/.test(state.date) ? state.date : "";
-        timeInput.value = state.time;
-        temperatureInput.value = state.temperature;
-        windInput.value = state.wind;
-        summaryInput.value = state.summary;
-        sceneLayerSelect.value = state.layer;
-        sceneIntensity.value = String(state.intensity.toFixed(2));
-        sceneIntensityValue.textContent = `${Math.round(state.intensity * 100)}%`;
+        applyStateToInputs(state, fields);
       } else {
         conditionSelect.value = "clear";
         paletteSelect.value = "day";
@@ -363,7 +448,7 @@ export function createSettingsUI(sendToBackend: (payload: unknown) => void): Set
         sceneIntensityValue.textContent = "30%";
       }
 
-      updateChipSelection();
+      updatePresetSelection(state);
     },
     destroy() {
       root.remove();
