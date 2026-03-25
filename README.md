@@ -131,26 +131,6 @@ To use story-driven weather generation:
 
 If you do not want the model driving the scene, you can skip prompt setup and use `Manual lock` from the HUD or settings panel instead.
 
-## Development
-
-Install dependencies:
-
-```bash
-bun install
-```
-
-Type-check:
-
-```bash
-bun run typecheck
-```
-
-Build:
-
-```bash
-bun run build
-```
-
 ## Project Layout
 
 ```text
