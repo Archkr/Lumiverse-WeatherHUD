@@ -128,10 +128,8 @@ export const WEATHER_HUD_CSS = `
 .weather-settings-card {
   width: 100%;
   border: 1px solid var(--lumiverse-border);
-  border-radius: calc(var(--lumiverse-radius) + 6px);
-  background:
-    radial-gradient(circle at top right, rgba(255, 197, 124, 0.16), transparent 30%),
-    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill) 87%, #0f2137 13%) 0%, var(--lumiverse-fill-subtle) 100%);
+  border-radius: calc(var(--lumiverse-radius) + 2px);
+  background: color-mix(in srgb, var(--lumiverse-fill) 94%, transparent);
   color: var(--lumiverse-text);
   overflow: hidden;
 }
@@ -141,7 +139,7 @@ export const WEATHER_HUD_CSS = `
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--lumiverse-border);
 }
 
@@ -159,15 +157,15 @@ export const WEATHER_HUD_CSS = `
 
 .weather-settings-card-body {
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px;
 }
 
 .weather-settings-preview {
-  padding: 11px 13px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 72%, transparent);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 84%, transparent);
   font-size: 11px;
   line-height: 1.5;
   color: var(--lumiverse-text);
@@ -176,13 +174,11 @@ export const WEATHER_HUD_CSS = `
 .weather-settings-section,
 .weather-settings-manual-card {
   display: grid;
-  gap: 12px;
-  padding: 13px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 80%, transparent);
-  background:
-    radial-gradient(circle at top right, rgba(141, 188, 255, 0.1), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--lumiverse-fill-subtle) 92%, #102033 8%), color-mix(in srgb, var(--lumiverse-fill-subtle) 96%, transparent));
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 88%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 96%, transparent);
 }
 
 .weather-settings-section-header {
@@ -197,9 +193,9 @@ export const WEATHER_HUD_CSS = `
 
 .weather-settings-section-title {
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(228, 236, 255, 0.68);
+  color: var(--lumiverse-text-muted);
 }
 
 .weather-settings-section-copy,
@@ -217,16 +213,16 @@ export const WEATHER_HUD_CSS = `
 
 .weather-settings-copy-title {
   font-size: 11px;
-  color: var(--lumiverse-text);
+  color: color-mix(in srgb, var(--lumiverse-text) 92%, transparent);
 }
 
 .weather-settings-code {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 78%, transparent);
-  background: color-mix(in srgb, rgba(11, 19, 33, 0.92) 88%, var(--lumiverse-fill-subtle));
-  color: color-mix(in srgb, #e6f0ff 90%, white);
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 90%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill) 96%, transparent);
+  color: color-mix(in srgb, var(--lumiverse-text) 94%, transparent);
   font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -248,32 +244,31 @@ export const WEATHER_HUD_CSS = `
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border-radius: 11px;
-  border: 1px solid var(--lumiverse-border);
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 88%, rgba(255, 255, 255, 0.03));
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 92%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill) 92%, transparent);
   color: var(--lumiverse-text);
   font-size: 12px;
 }
 
 .weather-settings-button {
   cursor: pointer;
-  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast), transform var(--lumiverse-transition-fast);
+  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast);
 }
 
 .weather-settings-button:hover {
   border-color: var(--lumiverse-border-hover);
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 74%, white 6%);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 90%, transparent);
 }
 
 .weather-settings-button-primary {
-  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 42%, var(--lumiverse-border));
-  background: linear-gradient(135deg, rgba(80, 125, 198, 0.94), rgba(45, 89, 160, 0.94));
-  color: #f7fbff;
+  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 26%, var(--lumiverse-border));
+  background: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 12%, var(--lumiverse-fill));
+  color: var(--lumiverse-text);
 }
 
 .weather-settings-button-primary:hover {
-  background: linear-gradient(135deg, rgba(97, 141, 217, 0.98), rgba(53, 98, 174, 0.98));
+  background: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 18%, var(--lumiverse-fill-subtle));
 }
 
 .weather-settings-checkbox {
@@ -322,12 +317,15 @@ export const WEATHER_HUD_CSS = `
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(241, 246, 255, 0.92);
-  background: rgba(70, 96, 132, 0.52);
+  color: var(--lumiverse-text-muted);
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 88%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill) 94%, transparent);
 }
 
 .weather-settings-status-pill[data-mode="manual"] {
-  background: linear-gradient(135deg, rgba(88, 123, 189, 0.88), rgba(48, 86, 151, 0.92));
+  color: var(--lumiverse-text);
+  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 22%, var(--lumiverse-border));
+  background: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 10%, var(--lumiverse-fill));
 }
 
 .weather-settings-preset-grid {
@@ -342,18 +340,17 @@ export const WEATHER_HUD_CSS = `
   text-align: left;
   padding: 9px 10px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 72%, transparent);
-  background: color-mix(in srgb, var(--lumiverse-fill-subtle) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumiverse-border) 88%, transparent);
+  background: color-mix(in srgb, var(--lumiverse-fill) 92%, transparent);
   color: var(--lumiverse-text);
   cursor: pointer;
-  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast), transform var(--lumiverse-transition-fast);
+  transition: border-color var(--lumiverse-transition-fast), background var(--lumiverse-transition-fast);
 }
 
 .weather-settings-preset:hover,
 .weather-settings-preset-active {
-  border-color: rgba(130, 168, 255, 0.58);
-  background: rgba(86, 122, 189, 0.2);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 24%, var(--lumiverse-border));
+  background: color-mix(in srgb, var(--lumiverse-primary, #82a8ff) 10%, var(--lumiverse-fill-subtle));
 }
 
 .weather-settings-preset-label {

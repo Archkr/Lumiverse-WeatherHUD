@@ -868,7 +868,6 @@ function createHudWidget(
   const wind = document.createElement("div");
   wind.className = "weather-hud-wind";
   left.appendChild(location);
-  left.appendChild(date);
   left.appendChild(time);
   left.appendChild(wind);
 
@@ -1101,9 +1100,8 @@ function createHudWidget(
 }
 
 function getLiveDate(state: WeatherState): Date | null {
-  if (state.timestampMs === null) return null;
-  const elapsed = Math.max(0, Date.now() - state.updatedAt);
-  return new Date(state.timestampMs + elapsed);
+  if (state.source !== "manual") return null;
+  return new Date();
 }
 
 function syncHudState(hud: HudElements, prefs: WeatherPrefs, state: WeatherState, expanded: boolean): void {
@@ -1231,7 +1229,7 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
 }
 
 export function setup(ctx: SpindleFrontendContext) {
-console.info("[weather_hud] frontend build 2026-03-25.4");
+console.info("[weather_hud] frontend build 2026-03-25.5");
 
   const cleanups: Array<() => void> = [];
   const removeStyle = ctx.dom.addStyle(WEATHER_HUD_CSS);
