@@ -227,6 +227,7 @@ var WEATHER_TRACKER_MACRO = "story_weather_tracker";
 var WEATHER_STATE_MACRO = "story_weather_state";
 var activeUserId = null;
 var lastKnownChatId = null;
+var fallbackGenerationInProgress = false;
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -238,6 +239,90 @@ function stripWeatherStateTags(content) {
   return content.replace(buildWeatherTagRegex(), "").replace(/\n{3,}/g, `
 
 `).trim();
+}
+function messageHasWeatherTag(content) {
+  return buildWeatherTagRegex().test(content);
+}
+function sanitizeAttrValue(value) {
+  return value.replace(/["<>]/g, "").replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+function formatWeatherTag(state) {
+  const attrs = [
+    ["location", state.location],
+    ["date", state.date],
+    ["time", state.time],
+    ["condition", state.condition],
+    ["summary", state.summary],
+    ["temperature", state.temperature],
+    ["intensity", state.intensity.toFixed(2)],
+    ["wind", state.wind],
+    ["layer", state.layer],
+    ["palette", state.palette]
+  ].map(([key, value]) => `${key}="${sanitizeAttrValue(String(value))}"`);
+  return `<weather-state ${attrs.join(" ")}></weather-state>`;
+}
+function stripCodeFences(content) {
+  return content.replace(/^```(?:json|xml|html)?\s*/i, "").replace(/\s*```$/i, "").trim();
+}
+function parseJsonObject(content) {
+  const trimmed = stripCodeFences(content);
+  if (!trimmed)
+    return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    const match = trimmed.match(/\{[\s\S]*\}/);
+    if (!match)
+      return null;
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+function buildSecondaryWeatherPrompt(messages, previous) {
+  const conversation = messages.filter((message) => message.role !== "system").map((message) => `${message.role === "user" ? "User" : "Assistant"}: ${stripWeatherStateTags(message.content)}`).join(`
+
+`);
+  return [
+    "Generate scene metadata for a story weather HUD.",
+    "Return ONLY a JSON object and nothing else.",
+    'Required keys: "location", "date", "time", "condition", "summary", "temperature", "intensity", "wind", "layer", "palette".',
+    `Allowed conditions: ${WEATHER_CONDITIONS.join(", ")}`,
+    `Allowed layers: ${WEATHER_LAYERS.join(", ")}`,
+    `Allowed palettes: ${WEATHER_PALETTES.join(", ")}`,
+    'Use short plain-text values. "intensity" must be a number from 0 to 1.',
+    `Previous state: ${summarizeWeatherState(previous)}`,
+    "",
+    "Conversation:",
+    conversation
+  ].join(`
+`);
+}
+function readMessageContext(payload) {
+  if (!payload || typeof payload !== "object")
+    return null;
+  const value = payload;
+  const nestedMessage = value.message && typeof value.message === "object" ? value.message : {};
+  const nestedChat = value.chat && typeof value.chat === "object" ? value.chat : {};
+  const chatIdCandidates = [value.chatId, value.chat_id, nestedMessage.chatId, nestedMessage.chat_id, nestedChat.id];
+  const messageIdCandidates = [value.messageId, value.message_id, nestedMessage.id, nestedMessage.messageId];
+  const content = (typeof nestedMessage.content === "string" ? nestedMessage.content : null) || (typeof value.content === "string" ? value.content : null);
+  const chatId = chatIdCandidates.find((candidate) => typeof candidate === "string" && candidate.trim());
+  const messageId = messageIdCandidates.find((candidate) => typeof candidate === "string" && candidate.trim());
+  return {
+    chatId: chatId ?? null,
+    messageId: messageId ?? null,
+    content
+  };
 }
 function send(message) {
   spindle.sendToFrontend(message);
@@ -443,6 +528,73 @@ spindle.on("SETTINGS_UPDATED", (payload) => {
   if (typeof chatId === "undefined")
     return;
   pushActiveChatState(chatId);
+});
+async function appendWeatherTagViaFallback(chatId, messageId) {
+  if (fallbackGenerationInProgress)
+    return;
+  fallbackGenerationInProgress = true;
+  try {
+    const messages = await spindle.chat.getMessages(chatId);
+    const targetMessage = messages.find((message) => message.id === messageId && message.role === "assistant");
+    if (!targetMessage)
+      return;
+    if (messageHasWeatherTag(targetMessage.content))
+      return;
+    const previousStory = await loadStoryWeatherState(chatId);
+    const recentMessages = messages.filter((message) => message.role !== "system").slice(-6).map((message) => ({
+      role: message.role,
+      content: stripWeatherStateTags(message.content)
+    }));
+    if (!recentMessages.length)
+      return;
+    const result = await spindle.generate.raw({
+      messages: [
+        {
+          role: "user",
+          content: buildSecondaryWeatherPrompt(recentMessages, previousStory)
+        }
+      ],
+      parameters: {
+        temperature: 0.2,
+        max_tokens: 220
+      }
+    });
+    const resultObj = result;
+    const rawContent = typeof resultObj.content === "string" ? resultObj.content : "";
+    const parsed = parseJsonObject(rawContent);
+    if (!parsed) {
+      spindle.log.warn("Weather HUD fallback generation returned invalid JSON.");
+      return;
+    }
+    const nextState = normalizeWeatherState({ ...parsed, updatedAt: Date.now(), source: "story" }, previousStory ?? makeDefaultWeatherState());
+    const weatherTag = formatWeatherTag(nextState);
+    const nextContent = `${targetMessage.content.trimEnd()}
+
+${weatherTag}`;
+    await spindle.chat.updateMessage(chatId, targetMessage.id, { content: nextContent });
+    await saveStoryWeatherState(chatId, nextState);
+    lastKnownChatId = chatId;
+    pushMacroValues(nextState);
+    const manualOverride = await loadManualWeatherState(chatId);
+    if (!manualOverride) {
+      send({ type: "weather_state", chatId, state: nextState });
+    }
+  } catch (error) {
+    spindle.log.warn(`Weather HUD fallback generation failed: ${error?.message || error}`);
+  } finally {
+    fallbackGenerationInProgress = false;
+  }
+}
+spindle.on("GENERATION_ENDED", (payload) => {
+  (async () => {
+    const context = readMessageContext(payload);
+    if (!context?.chatId || !context.messageId)
+      return;
+    if (typeof context.content === "string" && messageHasWeatherTag(context.content)) {
+      return;
+    }
+    await appendWeatherTagViaFallback(context.chatId, context.messageId);
+  })();
 });
 spindle.onFrontendMessage(async (raw, userId) => {
   await handleUserChange(userId);
