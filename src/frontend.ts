@@ -278,6 +278,9 @@ function createFxMarkup(kind: "back" | "front"): FxRoot {
     const snow = createDiv("weather-fx-snow");
     root.appendChild(snow);
 
+    const windowLayer = createDiv("weather-fx-window");
+    root.appendChild(windowLayer);
+
     for (let index = 0; index < 18; index += 1) {
       stars.appendChild(
         createSpan("weather-fx-star", {
@@ -400,6 +403,37 @@ function createFxMarkup(kind: "back" | "front"): FxRoot {
         }),
       );
     }
+
+    for (let index = 0; index < 14; index += 1) {
+      windowLayer.appendChild(
+        createSpan("weather-fx-window-streak weather-fx-window-streak-deep", {
+          "--window-left": `${randomBetween(-4, 102).toFixed(2)}%`,
+          "--window-top": `${randomBetween(-18, 24).toFixed(2)}%`,
+          "--window-width": `${randomBetween(2.2, 5.6).toFixed(2)}px`,
+          "--window-length": `${randomBetween(110, 240).toFixed(2)}px`,
+          "--window-duration": `${randomBetween(5.8, 11.8).toFixed(2)}s`,
+          "--window-delay": `${randomBetween(-10, 0).toFixed(2)}s`,
+          "--window-drift": `${randomBetween(-0.9, 1.1).toFixed(2)}vw`,
+          "--window-opacity-scale": `${randomBetween(0.42, 0.96).toFixed(2)}`,
+        }),
+      );
+    }
+
+    for (let index = 0; index < 20; index += 1) {
+      windowLayer.appendChild(
+        createSpan("weather-fx-window-bead", {
+          "--bead-left": `${randomBetween(0, 100).toFixed(2)}%`,
+          "--bead-top": `${randomBetween(4, 88).toFixed(2)}%`,
+          "--bead-size": `${randomBetween(5, 15).toFixed(2)}px`,
+          "--bead-stretch": `${randomBetween(1, 1.9).toFixed(2)}`,
+          "--bead-duration": `${randomBetween(7.5, 16).toFixed(2)}s`,
+          "--bead-delay": `${randomBetween(-12, 0).toFixed(2)}s`,
+          "--bead-drift": `${randomBetween(-0.55, 0.65).toFixed(2)}vw`,
+          "--bead-drop": `${randomBetween(4, 20).toFixed(2)}vh`,
+          "--bead-opacity-scale": `${randomBetween(0.34, 0.94).toFixed(2)}`,
+        }),
+      );
+    }
   } else {
     const frontHaze = createDiv("weather-fx-front-haze");
     root.appendChild(frontHaze);
@@ -413,15 +447,11 @@ function createFxMarkup(kind: "back" | "front"): FxRoot {
     const rainSheet = createDiv("weather-fx-rain-sheet");
     root.appendChild(rainSheet);
 
-    const windowLayer = createDiv("weather-fx-window");
-
     const rain = createDiv("weather-fx-rain weather-fx-rain-front");
     root.appendChild(rain);
 
     const snow = createDiv("weather-fx-snow weather-fx-snow-front");
     root.appendChild(snow);
-
-    root.appendChild(windowLayer);
 
     for (let index = 0; index < 3; index += 1) {
       frontClouds.appendChild(
@@ -469,21 +499,6 @@ function createFxMarkup(kind: "back" | "front"): FxRoot {
           "--sheet-delay": `${randomBetween(-1.8, 0).toFixed(2)}s`,
           "--sheet-drift": `${randomBetween(-10, -5.6).toFixed(2)}vw`,
           "--sheet-opacity-scale": `${randomBetween(0.3, 0.84).toFixed(2)}`,
-        }),
-      );
-    }
-
-    for (let index = 0; index < 10; index += 1) {
-      windowLayer.appendChild(
-        createSpan("weather-fx-window-streak", {
-          "--window-left": `${randomBetween(-4, 102).toFixed(2)}%`,
-          "--window-top": `${randomBetween(-14, 28).toFixed(2)}%`,
-          "--window-width": `${randomBetween(2, 5).toFixed(2)}px`,
-          "--window-length": `${randomBetween(80, 180).toFixed(2)}px`,
-          "--window-duration": `${randomBetween(5.5, 10.5).toFixed(2)}s`,
-          "--window-delay": `${randomBetween(-8, 0).toFixed(2)}s`,
-          "--window-drift": `${randomBetween(-1.2, 1.2).toFixed(2)}vw`,
-          "--window-opacity-scale": `${randomBetween(0.38, 0.9).toFixed(2)}`,
         }),
       );
     }
@@ -1473,8 +1488,8 @@ function applySceneState(root: FxRoot, state: WeatherState, prefs: WeatherPrefs,
   root.root.style.setProperty("--weather-front-mist-opacity", String(tokens.frontMistOpacity));
   root.root.style.setProperty("--weather-rain-sheet-opacity", String(tokens.rainSheetOpacity));
   root.root.style.setProperty("--weather-canopy-opacity", String(isFront ? 0 : tokens.canopyOpacity));
-  root.root.style.setProperty("--weather-window-overlay-opacity", String(isFront ? tokens.windowOverlayOpacity : 0));
-  root.root.style.setProperty("--weather-window-streak-opacity", String(isFront ? tokens.windowStreakOpacity : 0));
+  root.root.style.setProperty("--weather-window-overlay-opacity", String(isFront ? 0 : tokens.windowOverlayOpacity));
+  root.root.style.setProperty("--weather-window-streak-opacity", String(isFront ? 0 : tokens.windowStreakOpacity));
   root.root.style.setProperty(
     "--weather-rain-color",
     state.condition === "storm" ? "rgba(212, 231, 255, 0.96)" : "rgba(190, 220, 255, 0.84)",
